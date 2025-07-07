@@ -281,399 +281,158 @@ export default function AnonymousSession() {
   }, [disconnect]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Anonymous Therapy Session</h1>
-          <p className="text-gray-600">Connect with a qualified therapist anonymously</p>
-        </div>
+  <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Controls */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Connection Status */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Connection Status</h3>
-              <div className="space-y-2 text-sm">
-                <p><strong>Connected:</strong> {isConnected ? '✅' : '❌'}</p>
-                <p><strong>Session ID:</strong> {sessionId || 'None'}</p>
-                <p><strong>Request Status:</strong> {requestStatus || 'None'}</p>
-                <p><strong>Active Session:</strong> {activeSession ? '✅' : '❌'}</p>
-                <p><strong>Session Type:</strong> {activeSession?.sessionType || sessionType}</p>
-                <p><strong>Camera Permission:</strong> {mediaPermissions.camera ? '✅' : '❌'}</p>
-                <p><strong>Microphone Permission:</strong> {mediaPermissions.microphone ? '✅' : '❌'}</p>
-              </div>
-              
-              {/* Media Permissions Button */}
-              {(sessionType === 'audio' || sessionType === 'video') && !mediaPermissions.requested && (
-                <button
-                  onClick={requestMediaPermissions}
-                  className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-md"
-                >
-                  🎥 Enable {sessionType === 'video' ? 'Camera & Microphone' : 'Microphone'}
-                </button>
-              )}
-              
-              {(sessionType === 'audio' || sessionType === 'video') && mediaPermissions.requested && 
-               ((sessionType === 'video' && !mediaPermissions.camera) || !mediaPermissions.microphone) && (
-                <button
-                  onClick={requestMediaPermissions}
-                  className="mt-3 w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-3 rounded-md"
-                >
-                  🔄 Retry Permissions
-                </button>
-              )}
-              
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-extrabold text-gray-900">Anonymous Therapy Session</h1>
+        <p className="mt-2 text-lg text-gray-600">Connect securely and privately with a licensed therapist.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        {/* Left Column - Controls */}
+        <div className="space-y-6">
+
+          {/* Connection Status */}
+          {/* <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Connection Status</h3>
+            <ul className="text-sm space-y-1">
+              <li><strong>Connected:</strong> {isConnected ? '✅' : '❌'}</li>
+              <li><strong>Session ID:</strong> {sessionId || 'None'}</li>
+              <li><strong>Request Status:</strong> {requestStatus || 'None'}</li>
+              <li><strong>Active Session:</strong> {activeSession ? '✅' : '❌'}</li>
+              <li><strong>Session Type:</strong> {activeSession?.sessionType || sessionType}</li>
+              <li><strong>Camera:</strong> {mediaPermissions.camera ? '✅' : '❌'}</li>
+              <li><strong>Microphone:</strong> {mediaPermissions.microphone ? '✅' : '❌'}</li>
+            </ul>
+            {(sessionType === 'audio' || sessionType === 'video') && (
               <button
-                onClick={handleDisconnect}
-                className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                onClick={requestMediaPermissions}
+                className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md text-sm"
               >
-                Disconnect
+                {mediaPermissions.requested ? '🔄 Retry Permissions' : `🎥 Enable ${sessionType === 'video' ? 'Camera & Mic' : 'Microphone'}`}
               </button>
+            )}
+            <button
+              onClick={handleDisconnect}
+              className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm"
+            >
+              Disconnect
+            </button>
+          </div> */}
+
+          {/* Session Type */}
+          {!activeSession && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-3">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Session Type</h3>
+              {[
+                { id: 'text', label: 'Text Chat 💬', desc: 'Private anonymous messages' },
+                { id: 'audio', label: 'Voice Call 🎤', desc: 'Voice-anonymized session' },
+                { id: 'video', label: 'Video Call 📹', desc: 'Secure masked video call' }
+              ].map((type) => (
+                <label key={type.id} className={`block p-4 border rounded-md cursor-pointer transition ${sessionType === type.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <input
+                    type="radio"
+                    name="sessionType"
+                    value={type.id}
+                    checked={sessionType === type.id}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      setSessionType(newType);
+                      if ((newType === 'audio' || newType === 'video') && !mediaPermissions.requested) {
+                        setTimeout(() => requestMediaPermissions(), 100);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <div className="font-medium text-gray-800">{type.label}</div>
+                  <div className="text-sm text-gray-500">{type.desc}</div>
+                </label>
+              ))}
             </div>
+          )}
 
-            {/* Session Type Selection */}
-            {!activeSession && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Session Type</h3>
-                <div className="space-y-3">
-                  {[
-                    { id: 'text', label: 'Text Chat', icon: '💬', desc: 'Anonymous text messaging' },
-                    { id: 'audio', label: 'Voice Call', icon: '🎤', desc: 'Voice-masked audio call' },
-                    { id: 'video', label: 'Video Call', icon: '📹', desc: 'Anonymized video session' }
-                  ].map((type) => (
-                    <label
-                      key={type.id}
-                      className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
-                        sessionType === type.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="sessionType"
-                        value={type.id}
-                        checked={sessionType === type.id}
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          setSessionType(newType);
-                          // Auto-request permissions for audio/video
-                          if ((newType === 'audio' || newType === 'video') && !mediaPermissions.requested) {
-                            setTimeout(() => requestMediaPermissions(), 100);
-                          }
-                        }}
-                        className="hidden"
-                      />
-                      <span className="text-2xl mr-3">{type.icon}</span>
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-sm text-gray-500">{type.desc}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Therapist Selection */}
-            {!activeSession && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Select Therapist</h3>
-                  <button
-                    onClick={() => setShowTherapistList(!showTherapistList)}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    {showTherapistList ? 'Hide' : 'Show'} Available ({availableTherapists.length})
-                  </button>
-                </div>
-
-                {selectedTherapist && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="font-medium text-blue-900">{selectedTherapist.name}</div>
-                    <div className="text-sm text-blue-700">
-                      {selectedTherapist.specialties?.join(', ') || 'General Practice'}
-                    </div>
-                    <div className="text-xs text-blue-600 mt-1">
-                      {typeof selectedTherapist.experience === 'object' 
-                        ? `${selectedTherapist.experience?.yearsOfPractice || 0} years` 
-                        : `${selectedTherapist.experience || 0} years`} • 
-                      Supports: {selectedTherapist.supportedSessionTypes?.join(', ') || 'text'}
-                    </div>
-                  </div>
-                )}
-
-                {showTherapistList && (
-                  <div className="max-h-64 overflow-y-auto space-y-2">
-                    {availableTherapists.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        <div className="text-2xl mb-2">👩‍⚕️</div>
-                        <p>No therapists online</p>
-                        <button
-                          onClick={loadAvailableTherapists}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          Refresh
-                        </button>
-                      </div>
-                    ) : (
-                      availableTherapists.map((therapist) => (
-                        <div
-                          key={therapist.therapistId}
-                          onClick={() => {
-                            setSelectedTherapist(therapist);
-                            setShowTherapistList(false);
-                          }}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            selectedTherapist?.therapistId === therapist.therapistId
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="font-medium">{therapist.name}</div>
-                          <div className="text-sm text-gray-600">
-                            {therapist.specialties?.join(', ') || 'General Practice'}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {typeof therapist.experience === 'object' 
-                              ? `${therapist.experience?.yearsOfPractice || 0} years experience` 
-                              : `${therapist.experience || 0} years experience`}
-                          </div>
-                          <div className="text-xs text-green-600 mt-1">
-                            Supports: {therapist.supportedSessionTypes?.join(', ') || 'text'}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-
+          {/* Therapist List */}
+          {!activeSession && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Therapists</h3>
                 <button
-                  onClick={handleRequestSession}
-                  disabled={!isConnected || !selectedTherapist || requestStatus === 'sending'}
-                  className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-2 px-4 rounded-md text-sm font-medium"
+                  onClick={() => setShowTherapistList(!showTherapistList)}
+                  className="text-sm text-indigo-600 hover:text-indigo-800"
                 >
-                  {requestStatus === 'sending' ? 'Sending...' : `Request ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} Session`}
+                  {showTherapistList ? 'Hide' : 'Show'} ({availableTherapists.length})
                 </button>
-                
-                {requestStatus === 'sent' && (
-                  <p className="text-green-600 text-sm mt-2">Request sent! Waiting for therapist response...</p>
-                )}
-                {requestStatus === 'failed' && (
-                  <p className="text-red-600 text-sm mt-2">Request failed. Please try again.</p>
-                )}
               </div>
-            )}
-          </div>
 
-          {/* Right Column - Session Content */}
-          <div className="lg:col-span-2">
-            {activeSession ? (
-              <div className="space-y-6">
-                {/* Session Header */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {activeSession.sessionType === 'text' && '💬 Text Chat Session'}
-                        {activeSession.sessionType === 'audio' && '🎤 Voice Call Session'}
-                        {activeSession.sessionType === 'video' && '📹 Video Call Session'}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Started {activeSession.startTime.toLocaleTimeString()}
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleEndSession}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium"
-                    >
-                      End Session
-                    </button>
+              {selectedTherapist && (
+                <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm">
+                  <div className="font-semibold text-indigo-900">{selectedTherapist.name}</div>
+                  <div className="text-indigo-700">{selectedTherapist.specialties?.join(', ') || 'General Practice'}</div>
+                  <div className="text-indigo-600 mt-1 text-xs">
+                    {typeof selectedTherapist.experience === 'object'
+                      ? `${selectedTherapist.experience?.yearsOfPractice || 0} yrs`
+                      : `${selectedTherapist.experience || 0} yrs`} • Supports: {selectedTherapist.supportedSessionTypes?.join(', ') || 'text'}
                   </div>
                 </div>
+              )}
 
-                {/* WebRTC Video/Audio UI */}
-                {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="space-y-4">
-                      {/* Video Elements */}
-                      {activeSession.sessionType === 'video' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                            <video
-                              ref={webRTC.localVideoRef}
-                              autoPlay
-                              muted
-                              playsInline
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                              You
-                            </div>
-                          </div>
-                          <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                            <video
-                              ref={webRTC.remoteVideoRef}
-                              autoPlay
-                              playsInline
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                              Therapist
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Audio Elements */}
-                      {activeSession.sessionType === 'audio' && (
-                        <div className="flex justify-center">
-                          <div className="bg-gray-900 rounded-lg p-8 text-center">
-                            <div className="text-4xl mb-4">🎤</div>
-                            <p className="text-white">Voice Call Active</p>
-                            <p className="text-gray-300 text-sm">Clear audio and video</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Hidden audio element for remote audio playback */}
-                      {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && (
-                        <audio
-                          ref={webRTC.remoteAudioRef}
-                          autoPlay
-                          playsInline
-                          style={{ display: 'none' }}
-                        />
-                      )}
-
-                      {/* Call Controls */}
-                      <div className="flex justify-center space-x-4">
-                        {/* Audio autoplay blocked warning */}
-                        {webRTC.audioAutoplayBlocked && (
-                          <button
-                            onClick={() => webRTC.enableAudioPlayback()}
-                            className="px-4 py-2 rounded-full bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
-                          >
-                            🔊 Enable Audio
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => webRTC.toggleMute()}
-                          className={`px-4 py-2 rounded-full ${
-                            webRTC.isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
-                          } text-white transition-colors`}
-                        >
-                          {webRTC.isMuted ? '🔇' : '🎤'}
-                        </button>
-                        
-                        {activeSession.sessionType === 'video' && (
-                          <button
-                            onClick={() => webRTC.toggleVideo()}
-                            className={`px-4 py-2 rounded-full ${
-                              !webRTC.isVideoEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
-                            } text-white transition-colors`}
-                          >
-                            {!webRTC.isVideoEnabled ? '📹❌' : '📹'}
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => webRTC.endCall()}
-                          className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
-                        >
-                          📞❌
-                        </button>
-                      </div>
-
-                      {/* Connection Status */}
-                      <div className="text-center text-sm text-gray-500">
-                        Connection: {webRTC.connectionState || 'connecting...'}
-                      </div>
+              {showTherapistList && (
+                <div className="max-h-64 overflow-y-auto space-y-3">
+                  {availableTherapists.length === 0 ? (
+                    <div className="text-center py-6 text-gray-500">
+                      <p>No therapists online.</p>
+                      <button onClick={loadAvailableTherapists} className="mt-2 text-sm text-indigo-600 hover:underline">
+                        Refresh
+                      </button>
                     </div>
-                  </div>
-                )}
-
-                {/* Chat Interface (always available) */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-semibold text-gray-900">
-                      {activeSession.sessionType === 'text' ? 'Chat' : 'Chat (supplementary)'}
-                    </h4>
-                  </div>
-                  
-                  {/* Messages */}
-                  <div className="h-96 border rounded-lg p-4 mb-4 overflow-y-auto bg-gray-50">
-                    {messages.map((message) => (
+                  ) : (
+                    availableTherapists.map((t) => (
                       <div
-                        key={message.id}
-                        className={`mb-3 ${
-                          message.senderType === 'user' ? 'text-right' : 'text-left'
+                        key={t.therapistId}
+                        onClick={() => {
+                          setSelectedTherapist(t);
+                          setShowTherapistList(false);
+                        }}
+                        className={`p-3 rounded-md cursor-pointer border transition ${
+                          selectedTherapist?.therapistId === t.therapistId ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <div
-                          className={`inline-block max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
-                            message.senderType === 'user'
-                              ? 'bg-blue-600 text-white'
-                              : message.senderType === 'system'
-                              ? 'bg-gray-200 text-gray-800'
-                              : 'bg-white text-gray-900 border'
-                          }`}
-                        >
-                          {message.content}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </div>
+                        <div className="font-semibold">{t.name}</div>
+                        <div className="text-sm text-gray-600">{t.specialties?.join(', ') || 'Generalist'}</div>
+                        <div className="text-xs text-gray-500">{t.experience?.yearsOfPractice || t.experience || 0} yrs • Supports: {t.supportedSessionTypes?.join(', ')}</div>
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  )}
+                </div>
+              )}
 
-                  {/* Message Input */}
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Type your message..."
-                      className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
-                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm"
-                    >
-                      Send
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow p-8 text-center">
-                <div className="text-gray-400">
-                  <div className="text-6xl mb-4">
-                    {sessionType === 'text' && '💬'}
-                    {sessionType === 'audio' && '🎤'}
-                    {sessionType === 'video' && '📹'}
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Session</h3>
-                  <p className="text-gray-500 mb-4">
-                    Select a therapist and request a {sessionType} session to get started.
-                  </p>
-                  <div className="text-sm text-gray-400">
-                    {sessionType === 'text' && 'Anonymous text messaging with end-to-end encryption'}
-                    {sessionType === 'audio' && 'Voice-masked audio call for complete anonymity'}
-                    {sessionType === 'video' && 'Video session with identity protection features'}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+              <button
+                onClick={handleRequestSession}
+                disabled={!isConnected || !selectedTherapist || requestStatus === 'sending'}
+                className="w-full mt-4 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-md text-sm font-medium"
+              >
+                {requestStatus === 'sending' ? 'Sending...' : `Request ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} Session`}
+              </button>
+
+              {requestStatus === 'sent' && (
+                <p className="text-green-600 text-sm mt-2">Request sent! Waiting for therapist response...</p>
+              )}
+              {requestStatus === 'failed' && (
+                <p className="text-red-600 text-sm mt-2">Request failed. Please try again.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right Column - Session Display */}
+        <div className="lg:col-span-2">
+          {/* You can keep your activeSession display here, styled similarly */}
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

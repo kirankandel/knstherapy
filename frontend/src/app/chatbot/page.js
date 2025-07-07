@@ -9,7 +9,7 @@ export default function Chatbot() {
     {
       id: 1,
       type: "ai",
-      content: "Hello! I'm your anonymous AI mental health support companion. You can share anything with me - I'm here to listen and help. Your privacy is completely protected.",
+      content: "Hello! I'm your anonymous AI mental health support companion. You can share anything with me – I'm here to listen and help. Your privacy is completely protected.",
       timestamp: new Date(),
       subtext: "How are you feeling today?"
     }
@@ -28,8 +28,8 @@ export default function Chatbot() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+
   const generateAIResponse = (userMessage) => {
-    // Simple AI response logic - in real app, this would call your AI service
     const responses = {
       anxiety: [
         "I understand that anxiety can feel overwhelming. Thank you for sharing that with me. Can you tell me more about what might be triggering these feelings?",
@@ -58,206 +58,152 @@ export default function Chatbot() {
         "I appreciate you opening up. What's been on your mind lately that you'd like to explore?"
       ]
     };
+ const lower = userMessage.toLowerCase();
+    let selected = responses.default;
+    if (lower.includes("anxiety") || lower.includes("worried")) selected = responses.anxiety;
+    else if (lower.includes("stress") || lower.includes("overwhelmed")) selected = responses.stress;
+    else if (lower.includes("depression") || lower.includes("sad")) selected = responses.depression;
+    else if (lower.includes("sleep") || lower.includes("insomnia")) selected = responses.sleep;
 
-    const lowerMessage = userMessage.toLowerCase();
-    let responseArray = responses.default;
-
-    if (lowerMessage.includes('anxious') || lowerMessage.includes('anxiety') || lowerMessage.includes('worried')) {
-      responseArray = responses.anxiety;
-    } else if (lowerMessage.includes('stress') || lowerMessage.includes('overwhelmed') || lowerMessage.includes('pressure')) {
-      responseArray = responses.stress;
-    } else if (lowerMessage.includes('depressed') || lowerMessage.includes('depression') || lowerMessage.includes('sad')) {
-      responseArray = responses.depression;
-    } else if (lowerMessage.includes('sleep') || lowerMessage.includes('insomnia') || lowerMessage.includes('tired')) {
-      responseArray = responses.sleep;
-    }
-
-    return responseArray[Math.floor(Math.random() * responseArray.length)];
+    return selected[Math.floor(Math.random() * selected.length)];
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
 
-    const userMessage = {
+    const userMsg = {
       id: messages.length + 1,
       type: "user",
       content: inputMessage,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMsg]);
     setInputMessage("");
     setIsTyping(true);
 
-    // Simulate AI typing delay
     setTimeout(() => {
-      const aiResponse = {
+      const aiMsg = {
         id: messages.length + 2,
         type: "ai",
         content: generateAIResponse(inputMessage),
         timestamp: new Date(),
-        subtext: "Remember, everything you share here is completely anonymous and secure."
+        subtext: "Everything you share here is completely anonymous and secure."
       };
-
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages(prev => [...prev, aiMsg]);
       setIsTyping(false);
-    }, 1500 + Math.random() * 1000); // Random delay between 1.5-2.5 seconds
+    }, 1800);
   };
 
   const handleConnectTherapist = () => {
-    const therapistMessage = {
-      id: messages.length + 1,
-      type: "system",
-      content: "Redirecting you to connect with an anonymous human therapist...",
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, therapistMessage]);
-    
-    // Redirect to anonymous session page
-    setTimeout(() => {
-      router.push('/anonymous-session');
-    }, 2000);
+    setMessages(prev => [
+      ...prev,
+      {
+        id: messages.length + 1,
+        type: "system",
+        content: "Redirecting you to connect with a human therapist...",
+        timestamp: new Date()
+      }
+    ]);
+    setTimeout(() => router.push("/anonymous-session"), 2000);
   };
 
-  const formatTime = (timestamp) => {
-    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatTime = (timestamp) =>
+    timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-md h-[calc(100vh-8rem)] flex flex-col">
+        <div className="bg-white rounded-xl shadow-xl h-[calc(100vh-8rem)] flex flex-col border border-gray-200">
           {/* Header */}
-          <div className="bg-green-600 text-white p-4 rounded-t-lg">
+          <div className="bg-green-600 text-white p-5 rounded-t-xl shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-300 rounded-full mr-2"></div>
-                <h1 className="text-lg font-semibold">Anonymous AI Support</h1>
+                <span className="w-3 h-3 bg-green-300 rounded-full mr-2 animate-pulse"></span>
+                <h1 className="text-xl font-bold">Anonymous AI Support</h1>
               </div>
-              <div className="text-sm opacity-75">Always anonymous • End-to-end encrypted</div>
+              <p className="text-sm text-green-100">Encrypted & Private</p>
             </div>
-            <p className="text-green-100 text-sm mt-2">
-              I&apos;m here to provide immediate mental health support. If I detect a crisis situation, I can connect you with a human therapist.
+            <p className="text-sm mt-2 text-green-200">
+              I'm here to provide immediate mental health support. If I detect a crisis, I can connect you with a therapist.
             </p>
           </div>
 
           {/* Chat Area */}
-          <div className="flex-1 p-4 overflow-y-auto bg-gray-50" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-            {messages.map((message) => (
-              <div key={message.id} className={`mb-4 ${message.type === 'user' ? 'flex justify-end' : ''}`}>
-                {message.type === 'user' ? (
-                  // User message
-                  <div className="bg-indigo-600 text-white rounded-lg p-3 max-w-md shadow-sm">
-                    <p className="break-words">{message.content}</p>
-                    <p className="text-indigo-200 text-xs mt-1">{formatTime(message.timestamp)}</p>
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
+                {msg.type === "user" ? (
+                  <div className="bg-blue-600 text-white px-4 py-3 rounded-lg shadow max-w-xs sm:max-w-sm">
+                    <p>{msg.content}</p>
+                    <span className="text-xs text-blue-200 block mt-1">{formatTime(msg.timestamp)}</span>
                   </div>
-                ) : message.type === 'system' ? (
-                  // System message
-                  <div className="flex justify-center">
-                    <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-lg p-3 max-w-md text-center">
-                      <p className="text-sm">{message.content}</p>
-                    </div>
+                ) : msg.type === "system" ? (
+                  <div className="mx-auto bg-yellow-100 text-yellow-800 px-4 py-2 rounded-md text-sm border border-yellow-300">
+                    {msg.content}
                   </div>
                 ) : (
-                  // AI message
-                  <div className="bg-white rounded-lg p-4 shadow-sm max-w-md">
-                    <div className="flex items-start">
-                      <div className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm flex-shrink-0">
+                  <div className="bg-white border px-4 py-3 rounded-lg shadow max-w-xs sm:max-w-sm">
+                    <div className="flex">
+                      <div className="bg-green-500 text-white rounded-full h-8 w-8 flex items-center justify-center mr-3 text-sm font-bold">
                         AI
                       </div>
-                      <div className="flex-1">
-                        <p className="text-gray-800 break-words">{message.content}</p>
-                        {message.subtext && (
-                          <p className="text-gray-600 text-sm mt-2">{message.subtext}</p>
-                        )}
-                        <p className="text-gray-400 text-xs mt-2">{formatTime(message.timestamp)}</p>
+                      <div>
+                        <p className="text-gray-800">{msg.content}</p>
+                        {msg.subtext && <p className="text-gray-500 text-xs mt-1">{msg.subtext}</p>}
+                        <span className="text-xs text-gray-400 block mt-1">{formatTime(msg.timestamp)}</span>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
             ))}
-
-            {/* Typing indicator */}
             {isTyping && (
-              <div className="mb-4">
-                <div className="bg-white rounded-lg p-4 shadow-sm max-w-md">
-                  <div className="flex items-start">
-                    <div className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
-                      AI
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                      </div>
-                      <span className="text-gray-500 text-sm ml-2">AI is typing...</span>
-                    </div>
-                  </div>
+              <div className="flex items-center space-x-2">
+                <div className="h-8 w-8 bg-green-400 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                  AI
+                </div>
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></div>
                 </div>
               </div>
             )}
-
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
-          <div className="border-t bg-white p-4 rounded-b-lg">
-            <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+          {/* Input Section */}
+          <div className="border-t bg-white p-4 rounded-b-xl">
+            <form onSubmit={handleSendMessage} className="flex gap-3 items-center">
               <input
                 ref={inputRef}
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type your message here... (completely anonymous)"
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Type here... (completely anonymous)"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 outline-none"
                 disabled={isTyping}
                 maxLength={500}
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!inputMessage.trim() || isTyping}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg transition disabled:bg-gray-300"
               >
-                {isTyping ? 'AI Thinking...' : 'Send'}
+                {isTyping ? "Typing..." : "Send"}
               </button>
             </form>
-            <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-              <div className="flex items-center">
-                <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                Session ID: {sessionId} • Encrypted • No data stored
-              </div>
-              <button 
+            <div className="flex justify-between mt-2 text-xs text-gray-500">
+              <span>Session: {sessionId}</span>
+              <button
                 onClick={handleConnectTherapist}
-                className="text-red-600 hover:text-red-700 transition-colors"
+                className="text-red-600 hover:underline"
               >
-                🆘 Connect to Human Therapist
+                🆘 Connect to Therapist
               </button>
             </div>
-            <div className="text-right text-xs text-gray-400 mt-1">
-              {inputMessage.length}/500 characters
-            </div>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="grid md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-white rounded-lg p-4 shadow-sm text-center">
-            <div className="text-2xl mb-2">🧠</div>
-            <h3 className="font-semibold text-gray-800 mb-1">AI-Powered Support</h3>
-            <p className="text-gray-600 text-sm">Advanced NLP for mental health conversations</p>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm text-center">
-            <div className="text-2xl mb-2">🚨</div>
-            <h3 className="font-semibold text-gray-800 mb-1">Crisis Detection</h3>
-            <p className="text-gray-600 text-sm">Automatic escalation to human therapists</p>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm text-center">
-            <div className="text-2xl mb-2">🔒</div>
-            <h3 className="font-semibold text-gray-800 mb-1">Complete Privacy</h3>
-            <p className="text-gray-600 text-sm">No logs, no tracking, no data retention</p>
           </div>
         </div>
       </div>
