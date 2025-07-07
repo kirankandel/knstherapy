@@ -39,7 +39,10 @@ export default function TherapistDashboard() {
     if (isConnected && user?.userType === 'therapist' && !isOnline) {
       joinAsTherapist({
         therapistId: user.id,
-        name: user.name || 'Anonymous Therapist'
+        name: user.name || 'Anonymous Therapist',
+        specialties: user.therapistProfile?.specialties || ['general'],
+        experience: user.therapistProfile?.experience || 'Professional therapist',
+        bio: user.therapistProfile?.bio || `Hi! I'm ${user.name || 'a professional therapist'} and I'm here to help you.`
       });
       setIsOnline(true);
     }

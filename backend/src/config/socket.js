@@ -26,7 +26,7 @@ const initializeSocket = (server) => {
     // THERAPIST JOINS AND SENDS HEARTBEATS
     // ============================================
     socket.on('join-as-therapist', (data) => {
-      const { therapistId, name } = data;
+      const { therapistId, name, specialties, experience, bio } = data;
 
       if (!therapistId) {
         socket.emit('error', { message: 'Therapist ID required' });
@@ -36,15 +36,18 @@ const initializeSocket = (server) => {
       socket.therapistId = therapistId;
       socket.userType = 'therapist';
 
-      // Add to therapists map
+      // Add to therapists map with detailed information
       therapists.set(therapistId, {
         socketId: socket.id,
         name: name || 'Anonymous Therapist',
+        specialties: specialties || [],
+        experience: experience || 'Not specified',
+        bio: bio || 'Professional therapist ready to help.',
         isAvailable: true,
         lastHeartbeat: new Date(),
       });
 
-      logger.info(`Therapist ${therapistId} (${name}) joined and is available`);
+      logger.info(`Therapist ${therapistId} (${name}) joined with specialties: ${(specialties || []).join(', ')}`);
 
       socket.emit('therapist-joined', {
         therapistId,
@@ -358,6 +361,9 @@ const initializeSocket = (server) => {
         .map(([id, data]) => ({
           therapistId: id,
           name: data.name,
+          specialties: data.specialties || [],
+          experience: data.experience || 'Not specified',
+          bio: data.bio || 'Professional therapist ready to help.',
           isAvailable: data.isAvailable,
           lastHeartbeat: data.lastHeartbeat,
           status: 'online',

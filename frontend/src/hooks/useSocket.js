@@ -126,24 +126,42 @@ export const useSocket = () => {
     }
   }, [isConnected]);
 
-  // Get available therapists
-  const getAvailableTherapists = useCallback(() => {
+  // Get available therapists with callback
+  const getAvailableTherapists = useCallback((callback) => {
     if (socketRef.current && isConnected) {
       console.log('📋 Requesting available therapists');
+      
+      // Set up one-time listener for the response
+      const handleResponse = (data) => {
+        console.log('📋 Received available therapists:', data);
+        if (callback) callback(data.therapists || []);
+        // Remove the listener after handling
+        socketRef.current.off('available-therapists', handleResponse);
+      };
+      
+      socketRef.current.on('available-therapists', handleResponse);
       socketRef.current.emit('get-available-therapists');
+    } else if (callback) {
+      callback([]);
     }
   }, [isConnected]);
 
   // Event listeners
   const addEventListener = useCallback((event, callback) => {
     if (socketRef.current) {
+      console.log(`🎧 Adding listener for: ${event}`);
       socketRef.current.on(event, callback);
     }
   }, []);
 
-  const removeEventListener = useCallback((event) => {
+  const removeEventListener = useCallback((event, callback) => {
     if (socketRef.current) {
-      socketRef.current.off(event);
+      console.log(`🎧 Removing listener for: ${event}`);
+      if (callback) {
+        socketRef.current.off(event, callback);
+      } else {
+        socketRef.current.off(event);
+      }
     }
   }, []);
 
