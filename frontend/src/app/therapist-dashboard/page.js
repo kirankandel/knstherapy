@@ -3,267 +3,132 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
-import SessionRequestCard from '../../components/SessionRequestCard';
-import ActiveSessionCard from '../../components/ActiveSessionCard';
-import TherapistStatusCard from '../../components/TherapistStatusCard';
-import TherapistAPI from '../../services/therapistApi';
 
 export default function TherapistDashboard() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const {
     isConnected,
+    sessionId,
     connect,
     disconnect,
     joinAsTherapist,
-    onSessionMatched,
-    onWaitingForTherapist,
-    onMessage,
-    onSessionRequest,
-    sendMessage,
-    startTyping,
-    stopTyping,
-    endSession,
+    sendHeartbeat,
     acceptRequest,
     declineRequest,
-    offSessionRequest,
-    sessionId,
-    therapistId
+    sendMessage,
+    endSession,
+    addEventListener,
+    removeEventListener,
   } = useSocket();
 
+  const [isOnline, setIsOnline] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [isOnline, setIsOnline] = useState(false);
-  const [apiService, setApiService] = useState(null);
 
-  // Initialize API service
+  // Connect when component mounts
   useEffect(() => {
-    if (token) {
-      setApiService(new TherapistAPI(token));
-    }
-  }, [token]);
-
-  // Initialize therapist connection (only once)
-  useEffect(() => {
-    if (user && user.userType === 'therapist' && token && !isConnected) {
-      console.log('Therapist dashboard: Attempting to connect to Socket.IO');
+    if (user?.userType === 'therapist') {
       connect();
     }
-  }, [user, token, connect, isConnected]);
+  }, [user, connect]);
 
-  // Join as therapist when connected (only once per connection)
+  // Join as therapist when connected
   useEffect(() => {
-    if (isConnected && user && user.userType === 'therapist' && !therapistId) {
-      console.log('Therapist dashboard: Joining as therapist with ID:', user.id);
+    if (isConnected && user?.userType === 'therapist' && !isOnline) {
       joinAsTherapist({
         therapistId: user.id,
-        specialties: user.therapistProfile?.specialties || [],
-        name: user.name
+        name: user.name || 'Anonymous Therapist'
       });
       setIsOnline(true);
-      
-      // Note: Initial heartbeat is handled by AuthContext heartbeatService
-      // No need to send additional heartbeat here to avoid duplication
     }
-  }, [isConnected, user, joinAsTherapist, therapistId]); // Removed apiService from deps
+  }, [isConnected, user, joinAsTherapist, isOnline]);
 
-  // Handle session matching (set up once)
+  // Send heartbeat every 30 seconds
   useEffect(() => {
-    const handleSessionMatched = (data) => {
-      console.log('Session matched:', data);
-      setActiveSession({
-        sessionId: data.sessionId,
-        startTime: new Date(),
-        status: 'active'
-      });
+    if (isOnline) {
+      const interval = setInterval(() => {
+        sendHeartbeat(true);
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isOnline, sendHeartbeat]);
+
+  // Set up event listeners
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleSessionRequest = (data) => {
+      console.log('🔔 New session request:', data);
+      setPendingRequests(prev => [...prev, data]);
+    };
+
+    const handleSessionStarted = (data) => {
+      console.log('✅ Session started:', data);
+      setActiveSession({ sessionId: data.sessionId, startTime: new Date() });
       setMessages([{
-        id: 'welcome',
-        content: 'You have been connected with a user. This conversation is completely anonymous.',
+        id: 'system-1',
+        content: 'Session started! You are now connected with a user.',
         senderType: 'system',
         timestamp: new Date()
       }]);
     };
 
-    const handleWaitingForTherapist = (data) => {
-      console.log('User waiting for therapist:', data);
-      // This could show a notification or add to pending requests
+    const handleNewMessage = (message) => {
+      console.log('💬 New message:', message);
+      setMessages(prev => [...prev, message]);
     };
 
-    const handleSessionRequest = (data) => {
-      console.log('🔔 Therapist dashboard: Received session request:', data);
-      const newRequest = {
-        id: data.requestId,
-        sessionId: data.sessionId,
-        sessionType: data.sessionType,
-        message: data.message,
-        preferences: data.preferences,
-        timestamp: new Date(data.timestamp),
-        status: 'pending'
-      };
-      
-      console.log('📝 Adding request to pending list:', newRequest);
-      setPendingRequests(prev => {
-        const updated = [...prev, newRequest];
-        console.log('📋 Updated pending requests:', updated);
-        return updated;
-      });
+    const handleSessionEnded = (data) => {
+      console.log('🔚 Session ended:', data);
+      setActiveSession(null);
+      setMessages([]);
     };
 
-    console.log('🔌 Setting up socket listeners. Connected:', isConnected);
-    if (isConnected) {
-      console.log('✅ Registering session request listener');
-      onSessionMatched(handleSessionMatched);
-      onWaitingForTherapist(handleWaitingForTherapist);
-      onSessionRequest(handleSessionRequest);
-    }
-
-    // Cleanup function
-    return () => {
-      offSessionRequest();
-    };
-  }, [isConnected, onSessionMatched, onWaitingForTherapist, onSessionRequest, offSessionRequest]);
-
-  // Handle incoming messages (set up once)
-  useEffect(() => {
-    const handleMessage = (message) => {
-      setMessages(prev => [...prev, {
-        ...message,
-        timestamp: new Date(message.timestamp)
-      }]);
-    };
-
-    if (isConnected) {
-      onMessage(handleMessage);
-    }
+    addEventListener('session-request', handleSessionRequest);
+    addEventListener('session-started', handleSessionStarted);
+    addEventListener('new-message', handleNewMessage);
+    addEventListener('session-ended', handleSessionEnded);
 
     return () => {
-      // Cleanup
+      removeEventListener('session-request');
+      removeEventListener('session-started');
+      removeEventListener('new-message');
+      removeEventListener('session-ended');
     };
-  }, [isConnected, onMessage]);
+  }, [isConnected, addEventListener, removeEventListener]);
 
-  const handleSendMessage = () => {
+  const handleAcceptRequest = useCallback((request) => {
+    acceptRequest(request.requestId);
+    setPendingRequests(prev => prev.filter(r => r.requestId !== request.requestId));
+  }, [acceptRequest]);
+
+  const handleDeclineRequest = useCallback((request) => {
+    declineRequest(request.requestId, 'I am not available at this time.');
+    setPendingRequests(prev => prev.filter(r => r.requestId !== request.requestId));
+  }, [declineRequest]);
+
+  const handleSendMessage = useCallback(() => {
     if (newMessage.trim() && activeSession) {
-      const message = {
-        content: newMessage.trim(),
-        messageType: 'text'
-      };
-      
-      sendMessage(activeSession.sessionId, message.content, message.messageType);
-      
-      // Add to local messages immediately
-      setMessages(prev => [...prev, {
-        id: `temp_${Date.now()}`,
-        content: message.content,
-        messageType: message.messageType,
-        senderType: 'therapist',
-        senderId: user.id,
-        timestamp: new Date(),
-        sessionId: activeSession.sessionId
-      }]);
-      
+      sendMessage(activeSession.sessionId, newMessage.trim());
       setNewMessage('');
     }
-  };
+  }, [newMessage, activeSession, sendMessage]);
 
   const handleEndSession = useCallback(() => {
     if (activeSession) {
-      endSession();
-      setActiveSession(null);
-      setMessages([]);
+      endSession(activeSession.sessionId);
     }
   }, [activeSession, endSession]);
 
-  const handleAcceptRequest = useCallback((requestId) => {
-    console.log('Accepting request:', requestId);
-    
-    // Find the request
-    const request = pendingRequests.find(req => req.id === requestId);
-    if (!request) {
-      console.error('Request not found:', requestId);
-      return;
-    }
-    
-    // Send accept to backend
-    acceptRequest(requestId);
-    
-    // Remove from pending requests
-    setPendingRequests(prev => prev.filter(req => req.id !== requestId));
-    
-    // Set up active session
-    setActiveSession({
-      sessionId: request.sessionId,
-      startTime: new Date(),
-      status: 'active',
-      requestId: requestId
-    });
-    
-    // Add welcome message
-    setMessages([{
-      id: 'welcome',
-      content: 'You have accepted the session request. You are now connected with a user.',
-      senderType: 'system',
-      timestamp: new Date()
-    }]);
-  }, [pendingRequests, acceptRequest]);
+  const handleGoOffline = useCallback(() => {
+    setIsOnline(false);
+    sendHeartbeat(false);
+    disconnect();
+  }, [sendHeartbeat, disconnect]);
 
-  const handleDeclineRequest = useCallback((requestId, reason = 'I am not available at this time.') => {
-    console.log('Declining request:', requestId, 'Reason:', reason);
-    
-    // Send decline to backend
-    declineRequest(requestId, reason);
-    
-    // Remove from pending requests
-    setPendingRequests(prev => prev.filter(req => req.id !== requestId));
-  }, [declineRequest]);
-
-  const handleGoOnline = useCallback(async () => {
-    try {
-      if (!isConnected) {
-        connect();
-      }
-      setIsOnline(true);
-      
-      // Note: Heartbeat is handled by AuthContext heartbeatService
-      // No need to send additional heartbeat here
-      
-      // Update availability via REST API if needed
-      if (apiService) {
-        await apiService.sendHeartbeat(true);
-      }
-    } catch (error) {
-      console.error('Error going online:', error);
-    }
-  }, [isConnected, connect, apiService]);
-
-  const handleGoOffline = useCallback(async () => {
-    try {
-      setIsOnline(false);
-      
-      // End active session if any
-      if (activeSession) {
-        endSession();
-        setActiveSession(null);
-        setMessages([]);
-      }
-      
-      // Update availability via API
-      if (apiService) {
-        await apiService.sendHeartbeat(false);
-      }
-      
-      disconnect();
-    } catch (error) {
-      console.error('Error going offline:', error);
-    }
-  }, [activeSession, apiService, disconnect, endSession]);
-
-  // Note: Periodic heartbeat is handled by AuthContext heartbeatService
-  // No need for additional heartbeat interval here to avoid duplication
-  // The heartbeatService in AuthContext already sends heartbeats every 60s for therapists
-
-  // Redirect if not therapist
   if (!user || user.userType !== 'therapist') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -279,89 +144,78 @@ export default function TherapistDashboard() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Therapist Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {user.name}</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Therapist Dashboard</h1>
+            <p className="text-gray-600">Welcome back, {user.name}</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              isConnected 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {isConnected ? '🟢 Online' : '🔴 Offline'}
+            </div>
+            <button
+              onClick={handleGoOffline}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Go Offline
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Status & Controls */}
-          <div className="lg:col-span-1 space-y-6">
-            <TherapistStatusCard
-              isOnline={isOnline}
-              isConnected={isConnected}
-              activeSession={activeSession}
-              onGoOnline={handleGoOnline}
-              onGoOffline={handleGoOffline}
-              therapistId={therapistId}
-            />
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Status & Requests */}
+          <div className="space-y-6">
             {/* Debug Info */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Debug Info
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Debug Info</h3>
               <div className="space-y-2 text-sm">
-                <p><strong>Connected:</strong> {isConnected ? '✅ Yes' : '❌ No'}</p>
-                <p><strong>Therapist ID:</strong> {therapistId || 'Not set'}</p>
-                <p><strong>User ID:</strong> {user?.id || 'Not available'}</p>
+                <p><strong>Connected:</strong> {isConnected ? '✅' : '❌'}</p>
                 <p><strong>Session ID:</strong> {sessionId || 'None'}</p>
-                <p><strong>Online Status:</strong> {isOnline ? '🟢 Online' : '🔴 Offline'}</p>
+                <p><strong>Therapist ID:</strong> {user?.id}</p>
                 <p><strong>Pending Requests:</strong> {pendingRequests.length}</p>
+                <p><strong>Active Session:</strong> {activeSession ? '✅' : '❌'}</p>
               </div>
-              <button
-                onClick={() => {
-                  console.log('=== DEBUG INFO ===');
-                  console.log('isConnected:', isConnected);
-                  console.log('therapistId:', therapistId);
-                  console.log('user.id:', user?.id);
-                  console.log('sessionId:', sessionId);
-                  console.log('pendingRequests:', pendingRequests);
-                  console.log('=================');
-                }}
-                className="mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors"
-              >
-                Log Debug Info
-              </button>
-              <button
-                onClick={() => {
-                  // Simulate a session request for testing
-                  const testRequest = {
-                    id: 'test-' + Date.now(),
-                    sessionId: 'test-session',
-                    sessionType: 'text',
-                    message: 'Test session request',
-                    preferences: {},
-                    timestamp: new Date(),
-                    status: 'pending'
-                  };
-                  console.log('Adding test request:', testRequest);
-                  setPendingRequests(prev => [...prev, testRequest]);
-                }}
-                className="mt-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-3 rounded-md transition-colors"
-              >
-                Add Test Request
-              </button>
             </div>
 
             {/* Pending Requests */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Session Requests
+                Session Requests ({pendingRequests.length})
               </h3>
               {pendingRequests.length === 0 ? (
                 <p className="text-gray-500 text-sm">
-                  {isOnline ? 'Waiting for session requests...' : 'Go online to receive session requests'}
+                  {isOnline ? 'Waiting for session requests...' : 'Go online to receive requests'}
                 </p>
               ) : (
                 <div className="space-y-3">
                   {pendingRequests.map((request) => (
-                    <SessionRequestCard
-                      key={request.id}
-                      request={request}
-                      onAccept={(req) => handleAcceptRequest(req.id)}
-                      onDecline={(req) => handleDeclineRequest(req.id, 'I am not available at this time.')}
-                    />
+                    <div key={request.requestId} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-medium text-gray-900">New Session Request</h4>
+                        <span className="text-xs text-gray-500">
+                          {new Date(request.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-sm mb-3">{request.message}</p>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleAcceptRequest(request)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleDeclineRequest(request)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -369,18 +223,65 @@ export default function TherapistDashboard() {
           </div>
 
           {/* Right Column - Active Session */}
-          <div className="lg:col-span-2">
+          <div>
             {activeSession ? (
-              <ActiveSessionCard
-                session={activeSession}
-                messages={messages}
-                newMessage={newMessage}
-                setNewMessage={setNewMessage}
-                onSendMessage={handleSendMessage}
-                onEndSession={handleEndSession}
-                isTyping={isTyping}
-                userType="therapist"
-              />
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Active Session</h3>
+                  <button
+                    onClick={handleEndSession}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    End Session
+                  </button>
+                </div>
+                
+                {/* Messages */}
+                <div className="h-96 border rounded-lg p-4 mb-4 overflow-y-auto bg-gray-50">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`mb-3 ${
+                        message.senderType === 'therapist' ? 'text-right' : 'text-left'
+                      }`}
+                    >
+                      <div
+                        className={`inline-block max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                          message.senderType === 'therapist'
+                            ? 'bg-blue-600 text-white'
+                            : message.senderType === 'system'
+                            ? 'bg-gray-200 text-gray-800'
+                            : 'bg-white text-gray-900 border'
+                        }`}
+                      >
+                        {message.content}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Message Input */}
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Type your message..."
+                    className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim()}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="bg-white rounded-lg shadow p-8 text-center">
                 <div className="text-gray-400">
