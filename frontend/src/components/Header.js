@@ -24,6 +24,9 @@ export default function Header() {
             <Link href="/community" className="text-gray-600 hover:text-indigo-600 transition-colors">
               Community
             </Link>
+            <Link href="/crisis-resources" className="text-red-600 hover:text-red-700 transition-colors font-medium">
+              Crisis Resources
+            </Link>
           </div>
 
           {/* CTA Button */}
@@ -48,6 +51,7 @@ export default function Header() {
             <Link href="/anonymous-session" className="text-gray-600">Sessions</Link>
             <Link href="/chatbot" className="text-gray-600">AI Support</Link>
             <Link href="/community" className="text-gray-600">Community</Link>
+            <Link href="/crisis-resources" className="text-red-600 font-medium">Crisis</Link>
           </div>
         </div>
       </nav>

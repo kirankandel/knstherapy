@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-function Home() {
+export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
       {/* Hero Section */}
@@ -10,7 +10,7 @@ function Home() {
             KNS Therapy
           </h1>
           <p className="text-2xl font-medium text-indigo-800 mb-4">
-            "Healing, not headlines. Anonymity first, always."
+            &ldquo;Healing, not headlines. Anonymity first, always.&rdquo;
           </p>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
             Anonymous, stigma-free mental health support. Connect with licensed therapists, 
@@ -140,5 +140,3 @@ function Home() {
     </div>
   );
 }
-
-export default Home;
