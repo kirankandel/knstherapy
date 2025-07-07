@@ -7,17 +7,17 @@ const { userService } = require('../services');
 const getCommunityUsers = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['username', 'karma']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  
+
   // Add community user specific filters
   filter.userType = 'community_user';
-  
+
   const result = await userService.queryUsers(filter, options);
   res.send(result);
 });
 
 const getCommunityUser = catchAsync(async (req, res) => {
   const { identifier } = req.params;
-  
+
   let user;
   // Check if identifier is username or user ID
   if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
@@ -27,11 +27,11 @@ const getCommunityUser = catchAsync(async (req, res) => {
     // It's a username
     user = await userService.getCommunityUserByUsername(identifier);
   }
-  
+
   if (!user || user.userType !== 'community_user') {
     throw new ApiError(httpStatus.NOT_FOUND, 'Community user not found');
   }
-  
+
   res.send(user);
 });
 
@@ -47,16 +47,17 @@ const updateCommunityProfile = catchAsync(async (req, res) => {
   }
 
   const allowedUpdates = pick(req.body, [
-    'name', 'profile.bio', 'profile.avatar', 'profile.location',
-    'communityProfile.username', 'preferences'
+    'name',
+    'profile.bio',
+    'profile.avatar',
+    'profile.location',
+    'communityProfile.username',
+    'preferences',
   ]);
 
   // Check if username is being updated and if it's available
   if (allowedUpdates['communityProfile.username']) {
-    const isUsernameTaken = await userService.isUsernameTaken(
-      allowedUpdates['communityProfile.username'], 
-      user.id
-    );
+    const isUsernameTaken = await userService.isUsernameTaken(allowedUpdates['communityProfile.username'], user.id);
     if (isUsernameTaken) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Username already taken');
     }
@@ -73,23 +74,23 @@ const updateKarma = catchAsync(async (req, res) => {
   }
 
   const { karmaChange, reason } = req.body;
-  
+
   if (!karmaChange || typeof karmaChange !== 'number') {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid karma change value');
   }
 
   user.communityProfile.karma += karmaChange;
-  
+
   // Ensure karma doesn't go below 0
   if (user.communityProfile.karma < 0) {
     user.communityProfile.karma = 0;
   }
 
   await user.save();
-  
+
   res.send({
     user,
-    message: `Karma updated by ${karmaChange}${reason ? ` (${reason})` : ''}`
+    message: `Karma updated by ${karmaChange}${reason ? ` (${reason})` : ''}`,
   });
 });
 
@@ -100,9 +101,9 @@ const addBadge = catchAsync(async (req, res) => {
   }
 
   const { name, description } = req.body;
-  
+
   // Check if user already has this badge
-  const existingBadge = user.communityProfile.badges.find(badge => badge.name === name);
+  const existingBadge = user.communityProfile.badges.find((badge) => badge.name === name);
   if (existingBadge) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User already has this badge');
   }
@@ -110,14 +111,14 @@ const addBadge = catchAsync(async (req, res) => {
   user.communityProfile.badges.push({
     name,
     description,
-    earnedAt: new Date()
+    earnedAt: new Date(),
   });
 
   await user.save();
-  
+
   res.send({
     user,
-    message: `Badge "${name}" awarded successfully`
+    message: `Badge "${name}" awarded successfully`,
   });
 });
 

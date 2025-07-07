@@ -16,7 +16,7 @@ const testCommunityUser = {
   email: 'testuser@example.com',
   password: 'Password123',
   username: 'testuser123',
-  bio: 'This is a test community user'
+  bio: 'This is a test community user',
 };
 
 const testTherapist = {
@@ -26,13 +26,15 @@ const testTherapist = {
   licenseNumber: 'LIC123456',
   specialties: ['anxiety', 'depression'],
   yearsOfPractice: 5,
-  credentials: [{
-    type: 'degree',
-    name: 'PhD in Clinical Psychology',
-    institution: 'University of Example',
-    year: 2018
-  }],
-  bio: 'Experienced therapist specializing in anxiety and depression'
+  credentials: [
+    {
+      type: 'degree',
+      name: 'PhD in Clinical Psychology',
+      institution: 'University of Example',
+      year: 2018,
+    },
+  ],
+  bio: 'Experienced therapist specializing in anxiety and depression',
 };
 
 function makeRequest(endpoint, method = 'GET', data = null, headers = {}) {
@@ -40,14 +42,16 @@ function makeRequest(endpoint, method = 'GET', data = null, headers = {}) {
     const curlCommand = [
       'curl',
       '-s',
-      '-X', method,
-      '-H', 'Content-Type: application/json',
+      '-X',
+      method,
+      '-H',
+      'Content-Type: application/json',
       ...Object.entries(headers).flat(),
       data ? '-d' : '',
       data ? `'${JSON.stringify(data)}'` : '',
-      `${BASE_URL}${endpoint}`
+      `${BASE_URL}${endpoint}`,
     ].filter(Boolean);
-    
+
     const result = execSync(curlCommand.join(' '), { encoding: 'utf8' });
     return JSON.parse(result);
   } catch (error) {
@@ -62,7 +66,9 @@ async function runTests() {
   if (communityUserResult && communityUserResult.user) {
     console.log('✅ Community user registration successful');
     console.log(`   User ID: ${communityUserResult.user.id}`);
-    console.log(`   Username: ${communityUserResult.user.communityProfile && communityUserResult.user.communityProfile.username}`);
+    console.log(
+      `   Username: ${communityUserResult.user.communityProfile && communityUserResult.user.communityProfile.username}`
+    );
   } else {
     console.log('❌ Community user registration failed');
   }
@@ -72,8 +78,12 @@ async function runTests() {
   if (therapistResult && therapistResult.user) {
     console.log('✅ Therapist registration successful');
     console.log(`   User ID: ${therapistResult.user.id}`);
-    console.log(`   License: ${therapistResult.user.therapistProfile && therapistResult.user.therapistProfile.licenseNumber}`);
-    console.log(`   Status: ${therapistResult.user.therapistProfile && therapistResult.user.therapistProfile.verificationStatus}`);
+    console.log(
+      `   License: ${therapistResult.user.therapistProfile && therapistResult.user.therapistProfile.licenseNumber}`
+    );
+    console.log(
+      `   Status: ${therapistResult.user.therapistProfile && therapistResult.user.therapistProfile.verificationStatus}`
+    );
   } else {
     console.log('❌ Therapist registration failed');
   }
@@ -82,7 +92,7 @@ async function runTests() {
   const availableTherapists = makeRequest('/therapists/available');
   if (availableTherapists) {
     console.log('✅ Available therapists endpoint working');
-    console.log(`   Found ${availableTherapists.results && availableTherapists.results.length || 0} therapists`);
+    console.log(`   Found ${(availableTherapists.results && availableTherapists.results.length) || 0} therapists`);
   } else {
     console.log('❌ Available therapists endpoint failed');
   }
@@ -91,7 +101,7 @@ async function runTests() {
   const communityUsers = makeRequest('/community/users');
   if (communityUsers) {
     console.log('✅ Community users endpoint working');
-    console.log(`   Found ${communityUsers.results && communityUsers.results.length || 0} users`);
+    console.log(`   Found ${(communityUsers.results && communityUsers.results.length) || 0} users`);
   } else {
     console.log('❌ Community users endpoint failed');
   }

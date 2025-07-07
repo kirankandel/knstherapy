@@ -7,10 +7,10 @@ const { userService } = require('../services');
 const getTherapists = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['specialties', 'verificationStatus', 'isAvailable']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  
+
   // Add therapist-specific filters
   filter.userType = 'therapist';
-  
+
   const result = await userService.queryUsers(filter, options);
   res.send(result);
 });
@@ -18,7 +18,7 @@ const getTherapists = catchAsync(async (req, res) => {
 const getAvailableTherapists = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['specialties']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  
+
   const result = await userService.getAvailableTherapists(filter, options);
   res.send(result);
 });
@@ -43,9 +43,14 @@ const updateTherapistProfile = catchAsync(async (req, res) => {
   }
 
   const allowedUpdates = pick(req.body, [
-    'name', 'profile.bio', 'profile.avatar', 'profile.location',
-    'therapistProfile.specialties', 'therapistProfile.contact',
-    'therapistProfile.availability', 'preferences'
+    'name',
+    'profile.bio',
+    'profile.avatar',
+    'profile.location',
+    'therapistProfile.specialties',
+    'therapistProfile.contact',
+    'therapistProfile.availability',
+    'preferences',
   ]);
 
   const updatedTherapist = await userService.updateUserById(therapist.id, allowedUpdates);
@@ -63,9 +68,7 @@ const updateAvailability = catchAsync(async (req, res) => {
     throw new ApiError(httpStatus.FORBIDDEN, 'Forbidden');
   }
 
-  const availabilityData = pick(req.body, [
-    'isAvailable', 'workingHours', 'maxConcurrentSessions', 'sessionTypes'
-  ]);
+  const availabilityData = pick(req.body, ['isAvailable', 'workingHours', 'maxConcurrentSessions', 'sessionTypes']);
 
   const updatedTherapist = await userService.updateTherapistAvailability(therapist.id, availabilityData);
   res.send(updatedTherapist);
@@ -73,17 +76,13 @@ const updateAvailability = catchAsync(async (req, res) => {
 
 const verifyTherapist = catchAsync(async (req, res) => {
   const { status } = req.body;
-  
+
   if (!['verified', 'rejected', 'suspended'].includes(status)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid verification status');
   }
 
-  const updatedTherapist = await userService.updateTherapistVerification(
-    req.params.therapistId,
-    status,
-    req.user.id
-  );
-  
+  const updatedTherapist = await userService.updateTherapistVerification(req.params.therapistId, status, req.user.id);
+
   res.send(updatedTherapist);
 });
 

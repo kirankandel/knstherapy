@@ -28,7 +28,7 @@ const updateTherapist = {
           'other'
         )
       ),
-      'therapistProfile.contact.phone': Joi.string().pattern(/^[+]?[\d\s\-\(\)]+$/),
+      'therapistProfile.contact.phone': Joi.string().pattern(/^[+]?[\d\s\-()]+$/),
       'therapistProfile.contact.professionalEmail': Joi.string().email(),
       'therapistProfile.contact.website': Joi.string().uri(),
       'preferences.notifications.email': Joi.boolean(),

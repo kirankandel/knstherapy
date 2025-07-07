@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const pick = require('../utils/pick');
 const ApiError = require('../utils/ApiError');
 const catchAsync = require('../utils/catchAsync');
+const logger = require('../config/logger');
 const { userService } = require('../services');
 
 const createUser = catchAsync(async (req, res) => {
@@ -10,9 +11,18 @@ const createUser = catchAsync(async (req, res) => {
 });
 
 const getUsers = catchAsync(async (req, res) => {
+  logger.info(`[USER] Get users attempt - IP: ${req.ip}, User-Agent: ${req.get('User-Agent')}`);
+  logger.debug(`[USER] Get users query: ${JSON.stringify(req.query)}`);
+
   const filter = pick(req.query, ['name', 'role']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await userService.queryUsers(filter, options);
+
+  logger.info(
+    `[USER] Get users successful - Count: ${(result.results && result.results.length) || 0}, Total: ${
+      result.totalResults || 0
+    }, IP: ${req.ip}`
+  );
   res.send(result);
 });
 

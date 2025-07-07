@@ -17,7 +17,7 @@ const getSessionStatus = catchAsync(async (req, res) => {
 const getSessionMessages = catchAsync(async (req, res) => {
   const { sessionId } = req.params;
   const { limit = 50, offset = 0 } = req.query;
-  
+
   const messages = await chatService.getSessionMessages(sessionId, limit, offset);
   res.send({ messages });
 });

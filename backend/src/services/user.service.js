@@ -23,8 +23,8 @@ const createCommunityUser = async (userBody) => {
   if (await User.isEmailTaken(userBody.email)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
-  
-  if (userBody.username && await User.isUsernameTaken(userBody.username)) {
+
+  if (userBody.username && (await User.isUsernameTaken(userBody.username))) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Username already taken');
   }
 
@@ -41,7 +41,7 @@ const createCommunityUser = async (userBody) => {
     communityProfile: {
       username: userBody.username,
       karma: 0,
-    }
+    },
   };
 
   return User.create(userData);
@@ -56,7 +56,7 @@ const createTherapist = async (userBody) => {
   if (await User.isEmailTaken(userBody.email)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
-  
+
   if (await User.isLicenseNumberTaken(userBody.licenseNumber)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'License number already registered');
   }
@@ -94,7 +94,7 @@ const createTherapist = async (userBody) => {
         website: userBody.website,
       },
       verificationStatus: 'pending',
-    }
+    },
   };
 
   return User.create(userData);
@@ -177,9 +177,9 @@ const getAvailableTherapists = async (filter = {}, options = {}) => {
     'therapistProfile.verificationStatus': 'verified',
     'therapistProfile.availability.isAvailable': true,
     isActive: true,
-    ...filter
+    ...filter,
   };
-  
+
   return User.paginate(therapistFilter, options);
 };
 
@@ -189,9 +189,9 @@ const getAvailableTherapists = async (filter = {}, options = {}) => {
  * @returns {Promise<User>}
  */
 const getTherapistByLicense = async (licenseNumber) => {
-  return User.findOne({ 
+  return User.findOne({
     userType: 'therapist',
-    'therapistProfile.licenseNumber': licenseNumber 
+    'therapistProfile.licenseNumber': licenseNumber,
   });
 };
 
@@ -201,9 +201,9 @@ const getTherapistByLicense = async (licenseNumber) => {
  * @returns {Promise<User>}
  */
 const getCommunityUserByUsername = async (username) => {
-  return User.findOne({ 
+  return User.findOne({
     userType: 'community_user',
-    'communityProfile.username': username 
+    'communityProfile.username': username,
   });
 };
 
@@ -225,7 +225,7 @@ const updateTherapistVerification = async (therapistId, status, verifiedBy) => {
     therapist.therapistProfile.verifiedAt = new Date();
     therapist.therapistProfile.verifiedBy = verifiedBy;
   }
-  
+
   await therapist.save();
   return therapist;
 };

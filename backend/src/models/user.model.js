@@ -80,11 +80,11 @@ const userSchema = mongoose.Schema(
         minlength: 3,
         maxlength: 20,
         validate: {
-          validator: function(v) {
+          validator(v) {
             return !v || /^[a-zA-Z0-9_]+$/.test(v);
           },
-          message: 'Username can only contain letters, numbers, and underscores'
-        }
+          message: 'Username can only contain letters, numbers, and underscores',
+        },
       },
       joinedAt: {
         type: Date,
@@ -94,14 +94,16 @@ const userSchema = mongoose.Schema(
         type: Number,
         default: 0,
       },
-      badges: [{
-        name: String,
-        description: String,
-        earnedAt: {
-          type: Date,
-          default: Date.now,
-        }
-      }],
+      badges: [
+        {
+          name: String,
+          description: String,
+          earnedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
     },
     // Therapist specific fields
     therapistProfile: {
@@ -110,38 +112,42 @@ const userSchema = mongoose.Schema(
         unique: true,
         sparse: true,
       },
-      specialties: [{
-        type: String,
-        enum: [
-          'anxiety',
-          'depression',
-          'trauma',
-          'relationships',
-          'addiction',
-          'grief',
-          'eating_disorders',
-          'family_therapy',
-          'couples_therapy',
-          'child_therapy',
-          'cognitive_behavioral',
-          'mindfulness',
-          'other'
-        ],
-      }],
-      credentials: [{
-        type: {
+      specialties: [
+        {
           type: String,
-          enum: ['degree', 'certification', 'license'],
+          enum: [
+            'anxiety',
+            'depression',
+            'trauma',
+            'relationships',
+            'addiction',
+            'grief',
+            'eating_disorders',
+            'family_therapy',
+            'couples_therapy',
+            'child_therapy',
+            'cognitive_behavioral',
+            'mindfulness',
+            'other',
+          ],
         },
-        name: String,
-        institution: String,
-        year: Number,
-        verificationStatus: {
-          type: String,
-          enum: ['pending', 'verified', 'rejected'],
-          default: 'pending',
-        }
-      }],
+      ],
+      credentials: [
+        {
+          type: {
+            type: String,
+            enum: ['degree', 'certification', 'license'],
+          },
+          name: String,
+          institution: String,
+          year: Number,
+          verificationStatus: {
+            type: String,
+            enum: ['pending', 'verified', 'rejected'],
+            default: 'pending',
+          },
+        },
+      ],
       experience: {
         yearsOfPractice: {
           type: Number,
@@ -166,57 +172,61 @@ const userSchema = mongoose.Schema(
         totalReviews: {
           type: Number,
           default: 0,
-        }
+        },
       },
       availability: {
         isAvailable: {
           type: Boolean,
           default: false,
         },
-        workingHours: [{
-          day: {
-            type: String,
-            enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        workingHours: [
+          {
+            day: {
+              type: String,
+              enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+            },
+            startTime: String, // Format: "09:00"
+            endTime: String, // Format: "17:00"
           },
-          startTime: String, // Format: "09:00"
-          endTime: String,   // Format: "17:00"
-        }],
+        ],
         maxConcurrentSessions: {
           type: Number,
           default: 5,
         },
-        sessionTypes: [{
-          type: String,
-          enum: ['text', 'voice', 'video'],
-        }],
+        sessionTypes: [
+          {
+            type: String,
+            enum: ['text', 'voice', 'video'],
+          },
+        ],
       },
       contact: {
         phone: {
           type: String,
           validate: {
-            validator: function(v) {
+            validator(v) {
               return !v || validator.isMobilePhone(v);
             },
-            message: 'Please provide a valid phone number'
-          }
+            message: 'Please provide a valid phone number',
+          },
         },
         professionalEmail: {
           type: String,
           validate: {
-            validator: function(v) {
+            validator(v) {
               return !v || validator.isEmail(v);
             },
-            message: 'Please provide a valid email'
-          }
+            message: 'Please provide a valid email',
+          },
         },
         website: {
           type: String,
           validate: {
-            validator: function(v) {
+            validator(v) {
               return !v || validator.isURL(v);
             },
-            message: 'Please provide a valid URL'
-          }
+            message: 'Please provide a valid URL',
+          },
         },
       },
       verificationStatus: {
@@ -292,9 +302,9 @@ userSchema.statics.isEmailTaken = async function (email, excludeUserId) {
  * @returns {Promise<boolean>}
  */
 userSchema.statics.isUsernameTaken = async function (username, excludeUserId) {
-  const user = await this.findOne({ 
-    'communityProfile.username': username, 
-    _id: { $ne: excludeUserId } 
+  const user = await this.findOne({
+    'communityProfile.username': username,
+    _id: { $ne: excludeUserId },
   });
   return !!user;
 };
@@ -306,9 +316,9 @@ userSchema.statics.isUsernameTaken = async function (username, excludeUserId) {
  * @returns {Promise<boolean>}
  */
 userSchema.statics.isLicenseNumberTaken = async function (licenseNumber, excludeUserId) {
-  const user = await this.findOne({ 
-    'therapistProfile.licenseNumber': licenseNumber, 
-    _id: { $ne: excludeUserId } 
+  const user = await this.findOne({
+    'therapistProfile.licenseNumber': licenseNumber,
+    _id: { $ne: excludeUserId },
   });
   return !!user;
 };
@@ -328,9 +338,7 @@ userSchema.methods.isPasswordMatch = async function (password) {
  * @returns {boolean}
  */
 userSchema.methods.isVerifiedTherapist = function () {
-  return this.userType === 'therapist' && 
-         this.therapistProfile && 
-         this.therapistProfile.verificationStatus === 'verified';
+  return this.userType === 'therapist' && this.therapistProfile && this.therapistProfile.verificationStatus === 'verified';
 };
 
 /**
@@ -339,10 +347,12 @@ userSchema.methods.isVerifiedTherapist = function () {
  */
 userSchema.methods.isAvailable = function () {
   if (this.userType !== 'therapist') return false;
-  return this.therapistProfile && 
-         this.therapistProfile.availability && 
-         this.therapistProfile.availability.isAvailable &&
-         this.isActive;
+  return (
+    this.therapistProfile &&
+    this.therapistProfile.availability &&
+    this.therapistProfile.availability.isAvailable &&
+    this.isActive
+  );
 };
 
 /**
@@ -351,16 +361,16 @@ userSchema.methods.isAvailable = function () {
  */
 userSchema.methods.updateRating = async function (newRating) {
   if (this.userType !== 'therapist') return;
-  
+
   const currentAverage = this.therapistProfile.rating.average || 0;
   const currentTotal = this.therapistProfile.rating.totalReviews || 0;
-  
+
   const newTotal = currentTotal + 1;
-  const newAverage = ((currentAverage * currentTotal) + newRating) / newTotal;
-  
+  const newAverage = (currentAverage * currentTotal + newRating) / newTotal;
+
   this.therapistProfile.rating.average = Math.round(newAverage * 100) / 100; // Round to 2 decimal places
   this.therapistProfile.rating.totalReviews = newTotal;
-  
+
   await this.save();
 };
 
@@ -369,7 +379,7 @@ userSchema.methods.updateRating = async function (newRating) {
  */
 userSchema.methods.incrementCompletedSessions = async function () {
   if (this.userType !== 'therapist') return;
-  
+
   this.therapistProfile.experience.completedSessions += 1;
   this.lastActive = new Date();
   await this.save();

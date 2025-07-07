@@ -6,17 +6,17 @@ const communityController = require('../../controllers/community.controller');
 
 const router = express.Router();
 
-router
-  .route('/users')
-  .get(communityController.getCommunityUsers);
+router.route('/users').get(communityController.getCommunityUsers);
 
-router
-  .route('/users/:identifier')
-  .get(communityController.getCommunityUser);
+router.route('/users/:identifier').get(communityController.getCommunityUser);
 
 router
   .route('/users/:userId/profile')
-  .patch(auth('manageCommunityProfile'), validate(communityValidation.updateProfile), communityController.updateCommunityProfile);
+  .patch(
+    auth('manageCommunityProfile'),
+    validate(communityValidation.updateProfile),
+    communityController.updateCommunityProfile
+  );
 
 router
   .route('/users/:userId/karma')
@@ -26,8 +26,6 @@ router
   .route('/users/:userId/badges')
   .post(auth('manageUsers'), validate(communityValidation.addBadge), communityController.addBadge);
 
-router
-  .route('/users/:userId/stats')
-  .get(auth(), communityController.getCommunityUserStats);
+router.route('/users/:userId/stats').get(auth(), communityController.getCommunityUserStats);
 
 module.exports = router;
