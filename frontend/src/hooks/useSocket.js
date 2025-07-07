@@ -67,17 +67,22 @@ export const useSocket = () => {
   }, [isConnected]);
 
   // Join functions
-  const joinAsUser = useCallback(() => {
+  const joinAsUser = useCallback((sessionData = {}) => {
     if (socketRef.current && isConnected) {
-      console.log('👤 Joining as user');
-      socketRef.current.emit('join-as-user', {});
+      const { sessionType = 'text' } = sessionData;
+      console.log(`👤 Joining as user with session type: ${sessionType}`);
+      socketRef.current.emit('join-as-user', { sessionType });
     }
   }, [isConnected]);
 
   const joinAsTherapist = useCallback((therapistData) => {
     if (socketRef.current && isConnected) {
-      console.log('👨‍⚕️ Joining as therapist:', therapistData);
-      socketRef.current.emit('join-as-therapist', therapistData);
+      const data = {
+        ...therapistData,
+        supportedSessionTypes: therapistData.supportedSessionTypes || ['text', 'audio', 'video']
+      };
+      console.log('👨‍⚕️ Joining as therapist:', data);
+      socketRef.current.emit('join-as-therapist', data);
     }
   }, [isConnected]);
 
@@ -90,10 +95,10 @@ export const useSocket = () => {
   }, [isConnected]);
 
   // Session requests
-  const requestSession = useCallback((therapistId, message = '') => {
+  const requestSession = useCallback((therapistId, message = '', sessionType = 'text') => {
     if (socketRef.current && isConnected) {
-      console.log('📤 Requesting session with therapist:', therapistId);
-      socketRef.current.emit('request-session', { therapistId, message });
+      console.log(`📤 Requesting ${sessionType} session with therapist:`, therapistId);
+      socketRef.current.emit('request-session', { therapistId, message, sessionType });
     }
   }, [isConnected]);
 
@@ -126,24 +131,55 @@ export const useSocket = () => {
     }
   }, [isConnected]);
 
-  // Get available therapists with callback
-  const getAvailableTherapists = useCallback((callback) => {
+  // WebRTC signaling functions
+  const sendWebRTCOffer = useCallback((sessionId, offer, to) => {
     if (socketRef.current && isConnected) {
-      console.log('📋 Requesting available therapists');
-      
-      // Set up one-time listener for the response
-      const handleResponse = (data) => {
-        console.log('📋 Received available therapists:', data);
-        if (callback) callback(data.therapists || []);
-        // Remove the listener after handling
-        socketRef.current.off('available-therapists', handleResponse);
-      };
-      
-      socketRef.current.on('available-therapists', handleResponse);
-      socketRef.current.emit('get-available-therapists');
-    } else if (callback) {
-      callback([]);
+      console.log('📞 Sending WebRTC offer');
+      socketRef.current.emit('webrtc-offer', { sessionId, offer, to });
     }
+  }, [isConnected]);
+
+  const sendWebRTCAnswer = useCallback((sessionId, answer, to) => {
+    if (socketRef.current && isConnected) {
+      console.log('📞 Sending WebRTC answer');
+      socketRef.current.emit('webrtc-answer', { sessionId, answer, to });
+    }
+  }, [isConnected]);
+
+  const sendICECandidate = useCallback((sessionId, candidate, to) => {
+    if (socketRef.current && isConnected) {
+      console.log('🧊 Sending ICE candidate');
+      socketRef.current.emit('webrtc-ice-candidate', { sessionId, candidate, to });
+    }
+  }, [isConnected]);
+
+  const endCall = useCallback((sessionId) => {
+    if (socketRef.current && isConnected) {
+      console.log('📞 Ending call');
+      socketRef.current.emit('call-ended', { sessionId });
+    }
+  }, [isConnected]);
+
+  // Get available therapists with Promise
+  const getAvailableTherapists = useCallback(() => {
+    return new Promise((resolve) => {
+      if (socketRef.current && isConnected) {
+        console.log('📋 Requesting available therapists');
+        
+        // Set up one-time listener for the response
+        const handleResponse = (data) => {
+          console.log('📋 Received available therapists:', data);
+          resolve(data.therapists || []);
+          // Remove the listener after handling
+          socketRef.current.off('available-therapists', handleResponse);
+        };
+        
+        socketRef.current.on('available-therapists', handleResponse);
+        socketRef.current.emit('get-available-therapists');
+      } else {
+        resolve([]);
+      }
+    });
   }, [isConnected]);
 
   // Event listeners
@@ -179,6 +215,10 @@ export const useSocket = () => {
     declineRequest,
     sendMessage,
     endSession,
+    sendWebRTCOffer,
+    sendWebRTCAnswer,
+    sendICECandidate,
+    endCall,
     getAvailableTherapists,
     addEventListener,
     removeEventListener,

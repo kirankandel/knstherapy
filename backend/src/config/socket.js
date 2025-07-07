@@ -26,7 +26,7 @@ const initializeSocket = (server) => {
     // THERAPIST JOINS AND SENDS HEARTBEATS
     // ============================================
     socket.on('join-as-therapist', (data) => {
-      const { therapistId, name, specialties, experience, bio } = data;
+      const { therapistId, name, specialties, experience, bio, supportedSessionTypes } = data;
 
       if (!therapistId) {
         socket.emit('error', { message: 'Therapist ID required' });
@@ -43,15 +43,17 @@ const initializeSocket = (server) => {
         specialties: specialties || [],
         experience: experience || 'Not specified',
         bio: bio || 'Professional therapist ready to help.',
+        supportedSessionTypes: supportedSessionTypes || ['text', 'audio', 'video'],
         isAvailable: true,
         lastHeartbeat: new Date(),
       });
 
-      logger.info(`Therapist ${therapistId} (${name}) joined with specialties: ${(specialties || []).join(', ')}`);
+      logger.info(`Therapist ${therapistId} (${name}) joined with specialties: ${(specialties || []).join(', ')} and session types: ${(supportedSessionTypes || ['text', 'audio', 'video']).join(', ')}`);
 
       socket.emit('therapist-joined', {
         therapistId,
         status: 'online',
+        supportedSessionTypes: supportedSessionTypes || ['text', 'audio', 'video'],
         message: 'Successfully joined as therapist',
       });
     });
@@ -82,23 +84,25 @@ const initializeSocket = (server) => {
     // ============================================
     socket.on('join-as-user', (data) => {
       const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      const sessionType = data.sessionType || 'text'; // text, audio, video
 
       socket.sessionId = sessionId;
       socket.userType = 'user';
+      socket.sessionType = sessionType;
 
       socket.join(sessionId);
 
-      logger.info(`User joined with session ID: ${sessionId}`);
+      logger.info(`User joined with session ID: ${sessionId}, type: ${sessionType}`);
 
-      socket.emit('session-created', { sessionId });
+      socket.emit('session-created', { sessionId, sessionType });
     });
 
     // User requests session with specific therapist
     socket.on('request-session', (data) => {
-      const { therapistId, message } = data;
+      const { therapistId, message, sessionType = 'text' } = data;
 
       logger.info(
-        `[SOCKET] Session request received - SessionId: ${socket.sessionId}, TherapistId: ${therapistId}, UserType: ${socket.userType}`
+        `[SOCKET] Session request received - SessionId: ${socket.sessionId}, TherapistId: ${therapistId}, UserType: ${socket.userType}, SessionType: ${sessionType}`
       );
       logger.debug(`[SOCKET] Request data: ${JSON.stringify(data)}`);
 
@@ -130,6 +134,14 @@ const initializeSocket = (server) => {
         return;
       }
 
+      // Check if therapist supports the requested session type
+      const supportedTypes = therapist.supportedSessionTypes || ['text'];
+      if (!supportedTypes.includes(sessionType)) {
+        logger.warn(`[SOCKET] Therapist ${therapistId} does not support session type: ${sessionType}`);
+        socket.emit('request-failed', { message: `The selected therapist does not support ${sessionType} sessions.` });
+        return;
+      }
+
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
       const request = {
@@ -137,7 +149,8 @@ const initializeSocket = (server) => {
         sessionId: socket.sessionId,
         userId: socket.id,
         therapistId,
-        message: message || 'User requesting session',
+        sessionType,
+        message: message || `User requesting ${sessionType} session`,
         timestamp: new Date(),
       };
 
@@ -149,15 +162,17 @@ const initializeSocket = (server) => {
         therapistSocket.emit('session-request', {
           requestId,
           sessionId: socket.sessionId,
+          sessionType,
           message: request.message,
           timestamp: request.timestamp,
         });
 
-        logger.info(`[SOCKET] Session request sent: ${requestId} from user to therapist ${therapistId}`);
+        logger.info(`[SOCKET] Session request sent: ${requestId} from user to therapist ${therapistId} for ${sessionType} session`);
 
         socket.emit('request-sent', {
           requestId,
-          message: 'Request sent to therapist. Waiting for response...',
+          sessionType,
+          message: `${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} session request sent to therapist. Waiting for response...`,
         });
       } else {
         logger.error(`[SOCKET] Therapist socket ${therapist.socketId} not found for therapist ${therapistId}`);
@@ -185,6 +200,7 @@ const initializeSocket = (server) => {
       // Create active session
       const session = {
         sessionId: request.sessionId,
+        sessionType: request.sessionType || 'text',
         therapistId: socket.therapistId,
         userId: request.userId,
         startTime: new Date(),
@@ -195,6 +211,7 @@ const initializeSocket = (server) => {
       // Join therapist to session room
       socket.join(request.sessionId);
       socket.sessionId = request.sessionId;
+      socket.sessionType = request.sessionType;
 
       // Mark therapist as busy
       const therapist = therapists.get(socket.therapistId);
@@ -207,11 +224,12 @@ const initializeSocket = (server) => {
       if (userSocket) {
         io.to(request.sessionId).emit('session-started', {
           sessionId: request.sessionId,
-          message: 'Session started! You are now connected with your therapist.',
+          sessionType: session.sessionType,
+          message: `${session.sessionType.charAt(0).toUpperCase() + session.sessionType.slice(1)} session started! You are now connected with your therapist.`,
         });
       }
 
-      logger.info(`Session started: ${request.sessionId} between therapist ${socket.therapistId} and user`);
+      logger.info(`${session.sessionType} session started: ${request.sessionId} between therapist ${socket.therapistId} and user`);
 
       // Cleanup request
       pendingRequests.delete(requestId);
@@ -243,6 +261,108 @@ const initializeSocket = (server) => {
 
       // Cleanup request
       pendingRequests.delete(requestId);
+    });
+
+    // ============================================
+    // WEBRTC SIGNALING FOR VOICE/VIDEO CALLS
+    // ============================================
+    
+    // WebRTC offer (from user or therapist)
+    socket.on('webrtc-offer', (data) => {
+      const { sessionId, offer, to } = data;
+      
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        socket.emit('error', { message: 'No active session for WebRTC offer' });
+        return;
+      }
+
+      // Forward offer to the other participant
+      const targetSocketId = to === 'therapist' ? 
+        (therapists.get(session.therapistId) && therapists.get(session.therapistId).socketId) : 
+        session.userId;
+      
+      if (targetSocketId) {
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        if (targetSocket) {
+          targetSocket.emit('webrtc-offer', {
+            sessionId,
+            offer,
+            from: socket.userType
+          });
+          logger.info(`WebRTC offer forwarded in session ${sessionId} from ${socket.userType} to ${to}`);
+        }
+      }
+    });
+
+    // WebRTC answer (from user or therapist)
+    socket.on('webrtc-answer', (data) => {
+      const { sessionId, answer, to } = data;
+      
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        socket.emit('error', { message: 'No active session for WebRTC answer' });
+        return;
+      }
+
+      // Forward answer to the other participant
+      const targetSocketId = to === 'therapist' ? 
+        (therapists.get(session.therapistId) && therapists.get(session.therapistId).socketId) : 
+        session.userId;
+      
+      if (targetSocketId) {
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        if (targetSocket) {
+          targetSocket.emit('webrtc-answer', {
+            sessionId,
+            answer,
+            from: socket.userType
+          });
+          logger.info(`WebRTC answer forwarded in session ${sessionId} from ${socket.userType} to ${to}`);
+        }
+      }
+    });
+
+    // WebRTC ICE candidates
+    socket.on('webrtc-ice-candidate', (data) => {
+      const { sessionId, candidate, to } = data;
+      
+      const session = activeSessions.get(sessionId);
+      if (!session) {
+        socket.emit('error', { message: 'No active session for ICE candidate' });
+        return;
+      }
+
+      // Forward ICE candidate to the other participant
+      const targetSocketId = to === 'therapist' ? 
+        (therapists.get(session.therapistId) && therapists.get(session.therapistId).socketId) : 
+        session.userId;
+      
+      if (targetSocketId) {
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        if (targetSocket) {
+          targetSocket.emit('webrtc-ice-candidate', {
+            sessionId,
+            candidate,
+            from: socket.userType
+          });
+        }
+      }
+    });
+
+    // Call ended
+    socket.on('call-ended', (data) => {
+      const { sessionId } = data;
+      
+      const session = activeSessions.get(sessionId);
+      if (session) {
+        io.to(sessionId).emit('call-ended', {
+          sessionId,
+          endedBy: socket.userType,
+          message: `${socket.userType === 'therapist' ? 'Therapist' : 'User'} ended the call.`
+        });
+        logger.info(`Call ended in session ${sessionId} by ${socket.userType}`);
+      }
     });
 
     // ============================================
@@ -364,6 +484,7 @@ const initializeSocket = (server) => {
           specialties: data.specialties || [],
           experience: data.experience || 'Not specified',
           bio: data.bio || 'Professional therapist ready to help.',
+          supportedSessionTypes: data.supportedSessionTypes || ['text'],
           isAvailable: data.isAvailable,
           lastHeartbeat: data.lastHeartbeat,
           status: 'online',
