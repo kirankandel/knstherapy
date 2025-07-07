@@ -141,6 +141,29 @@ const getCommunityUserStats = catchAsync(async (req, res) => {
   res.send(stats);
 });
 
+const sendHeartbeat = catchAsync(async (req, res) => {
+  const { user } = req;
+  const { timestamp } = req.body;
+
+  // Ensure user is a community user
+  if (user.role !== 'community') {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Only community users can send heartbeats to this endpoint');
+  }
+
+  // Update community user's last active timestamp
+  await userService.updateUserById(user.id, {
+    lastActive: timestamp ? new Date(timestamp) : new Date(),
+    isOnline: true,
+  });
+
+  res.status(httpStatus.OK).json({
+    message: 'Heartbeat received',
+    timestamp: new Date(),
+    status: 'online',
+    userId: user.id,
+  });
+});
+
 module.exports = {
   getCommunityUsers,
   getCommunityUser,
@@ -148,4 +171,5 @@ module.exports = {
   updateKarma,
   addBadge,
   getCommunityUserStats,
+  sendHeartbeat,
 };

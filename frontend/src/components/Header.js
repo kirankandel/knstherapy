@@ -54,6 +54,14 @@ export default function Header() {
                 <span className="text-sm text-gray-600">
                   {user?.userType === 'therapist' ? `Dr. ${user.name}` : user?.username || user?.name}
                 </span>
+                {user?.userType === 'therapist' && (
+                  <Link
+                    href="/therapist-dashboard"
+                    className="bg-indigo-100 text-indigo-700 px-3 py-2 rounded-md hover:bg-indigo-200 transition-colors text-sm font-medium"
+                  >
+                    Dashboard
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"

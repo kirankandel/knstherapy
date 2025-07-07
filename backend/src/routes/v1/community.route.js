@@ -8,6 +8,8 @@ const router = express.Router();
 
 router.route('/users').get(communityController.getCommunityUsers);
 
+router.route('/heartbeat').post(auth(), communityController.sendHeartbeat);
+
 router.route('/users/:identifier').get(communityController.getCommunityUser);
 
 router

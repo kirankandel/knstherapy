@@ -1,0 +1,94 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Next.js: debug server-side",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/next/dist/bin/next",
+      "args": ["dev"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_OPTIONS": "--inspect=9229"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "autoAttachChildProcesses": false,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "serverReadyAction": {
+        "pattern": "ready - started server on .*, url: (https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Next.js: debug client-side",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMapPathOverrides": {
+        "webpack://_N_E/./*": "${webRoot}/*",
+        "webpack:///./*": "${webRoot}/*"
+      }
+    },
+    {
+      "name": "Next.js: debug full stack",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/next/dist/bin/next",
+      "args": ["dev"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_OPTIONS": "--inspect=9228"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "autoAttachChildProcesses": false,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "serverReadyAction": {
+        "pattern": "ready - started server on .*, url: (https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Debug Backend Server",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}/../backend",
+      "remoteRoot": "${workspaceFolder}/../backend",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true
+    },
+    {
+      "name": "Next.js: simple debug",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/next",
+      "args": ["dev"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch Frontend & Backend",
+      "configurations": ["Next.js: debug server-side", "Debug Backend Server"],
+      "stopAll": true
+    }
+  ]
+}

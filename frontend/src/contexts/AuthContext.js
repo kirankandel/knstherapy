@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import heartbeatService from '../services/heartbeat';
 
 const AuthContext = createContext();
 
@@ -100,6 +101,24 @@ export function AuthProvider({ children }) {
       }
     }
   }, []);
+
+  // Start/stop heartbeat service based on authentication status
+  useEffect(() => {
+    if (state.isAuthenticated && state.token && state.user) {
+      // Start heartbeat service only for therapists
+      if (state.user.role === 'therapist') {
+        heartbeatService.start(state.token, state.user.role);
+      }
+    } else {
+      // Stop heartbeat service when user logs out
+      heartbeatService.stop();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      heartbeatService.stop();
+    };
+  }, [state.isAuthenticated, state.token, state.user]);
 
   // API base URL
   const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/v1';

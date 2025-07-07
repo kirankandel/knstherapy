@@ -1,0 +1,28 @@
+{
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.suggest.autoImports": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.workingDirectories": ["./"],
+  "files.exclude": {
+    "**/.next": true,
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.DS_Store": true
+  },
+  "search.exclude": {
+    "**/.next": true,
+    "**/node_modules": true,
+    "**/.git": true
+  },
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "debug.javascript.debugByLinkOptions": "always",
+  "debug.javascript.autoAttachFilter": "smart",
+  "debug.node.autoAttach": "on",
+  "debug.allowBreakpointsEverywhere": true,
+  "debug.javascript.breakOnConditionalError": true,
+  "extensions.ignoreRecommendations": false
+}

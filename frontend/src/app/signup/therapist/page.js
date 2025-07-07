@@ -77,7 +77,7 @@ export default function TherapistSignup() {
   // Clear error when component unmounts
   useEffect(() => {
     return () => clearError();
-  }, []);
+  }, [clearError]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

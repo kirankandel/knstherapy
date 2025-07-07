@@ -244,6 +244,10 @@ const userSchema = mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
     preferences: {
       notifications: {
         email: {
@@ -390,6 +394,12 @@ userSchema.pre('save', async function (next) {
   if (user.isModified('password')) {
     user.password = await bcrypt.hash(user.password, 8);
   }
+  
+  // Auto-set isOnline to true when isActive is set to true
+  if (user.isModified('isActive') && user.isActive === true) {
+    user.isOnline = true;
+  }
+  
   next();
 });
 

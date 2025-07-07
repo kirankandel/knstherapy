@@ -146,7 +146,14 @@ const updateUserById = async (userId, updateBody) => {
   if (updateBody.email && (await User.isEmailTaken(updateBody.email, userId))) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
-  Object.assign(user, updateBody);
+  
+  // Auto-set isOnline to true when isActive is set to true
+  const updatedBody = { ...updateBody };
+  if (updatedBody.isActive === true) {
+    updatedBody.isOnline = true;
+  }
+  
+  Object.assign(user, updatedBody);
   await user.save();
   return user;
 };
@@ -172,11 +179,22 @@ const deleteUserById = async (userId) => {
  * @returns {Promise<QueryResult>}
  */
 const getAvailableTherapists = async (filter = {}, options = {}) => {
+  // Get therapists who are either:
+  // 1. Currently active (isActive: true) OR
+  // 2. Recently sent heartbeat (isOnline: true and lastActive within last 5 minutes)
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
   const therapistFilter = {
     userType: 'therapist',
     'therapistProfile.verificationStatus': 'verified',
     'therapistProfile.availability.isAvailable': true,
-    isActive: true,
+    $or: [
+      { isActive: true },
+      {
+        isOnline: true,
+        lastActive: { $gte: fiveMinutesAgo },
+      },
+    ],
     ...filter,
   };
 
