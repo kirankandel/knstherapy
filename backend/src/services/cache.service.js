@@ -109,13 +109,14 @@ const setTherapistStats = (therapistId, data) => {
  */
 const clearTherapistCache = () => {
   const keys = cache.keys();
-  const therapistKeys = keys.filter(key => 
-    key.includes(CACHE_KEYS.AVAILABLE_THERAPISTS) || 
-    key.includes(CACHE_KEYS.ONLINE_THERAPISTS) ||
-    key.includes(CACHE_KEYS.REALTIME_STATUS)
+  const therapistKeys = keys.filter(
+    (key) =>
+      key.includes(CACHE_KEYS.AVAILABLE_THERAPISTS) ||
+      key.includes(CACHE_KEYS.ONLINE_THERAPISTS) ||
+      key.includes(CACHE_KEYS.REALTIME_STATUS)
   );
-  
-  therapistKeys.forEach(key => cache.del(key));
+
+  therapistKeys.forEach((key) => cache.del(key));
   logger.info(`[CACHE] Cleared ${therapistKeys.length} therapist cache keys`);
 };
 

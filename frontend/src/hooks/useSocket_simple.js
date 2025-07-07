@@ -126,14 +126,6 @@ export const useSocket = () => {
     }
   }, [isConnected]);
 
-  // Get available therapists
-  const getAvailableTherapists = useCallback(() => {
-    if (socketRef.current && isConnected) {
-      console.log('📋 Requesting available therapists');
-      socketRef.current.emit('get-available-therapists');
-    }
-  }, [isConnected]);
-
   // Event listeners
   const addEventListener = useCallback((event, callback) => {
     if (socketRef.current) {
@@ -161,7 +153,6 @@ export const useSocket = () => {
     declineRequest,
     sendMessage,
     endSession,
-    getAvailableTherapists,
     addEventListener,
     removeEventListener,
   };

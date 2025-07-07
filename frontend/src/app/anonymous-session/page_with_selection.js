@@ -7,7 +7,6 @@ export default function AnonymousSession() {
   const {
     isConnected,
     sessionId,
-    connectionError,
     connect,
     disconnect,
     joinAsUser,

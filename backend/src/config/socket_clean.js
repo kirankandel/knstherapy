@@ -27,7 +27,7 @@ const initializeSocket = (server) => {
     // ============================================
     socket.on('join-as-therapist', (data) => {
       const { therapistId, name } = data;
-
+      
       if (!therapistId) {
         socket.emit('error', { message: 'Therapist ID required' });
         return;
@@ -41,15 +41,15 @@ const initializeSocket = (server) => {
         socketId: socket.id,
         name: name || 'Anonymous Therapist',
         isAvailable: true,
-        lastHeartbeat: new Date(),
+        lastHeartbeat: new Date()
       });
 
       logger.info(`Therapist ${therapistId} (${name}) joined and is available`);
-
-      socket.emit('therapist-joined', {
-        therapistId,
+      
+      socket.emit('therapist-joined', { 
+        therapistId, 
         status: 'online',
-        message: 'Successfully joined as therapist',
+        message: 'Successfully joined as therapist' 
       });
     });
 
@@ -63,13 +63,13 @@ const initializeSocket = (server) => {
       if (therapist) {
         therapist.lastHeartbeat = new Date();
         therapist.isAvailable = data.isAvailable !== false; // default to true
-
+        
         logger.info(`Heartbeat from therapist ${socket.therapistId}`);
-
+        
         socket.emit('heartbeat-ack', {
           timestamp: new Date(),
           therapistId: socket.therapistId,
-          status: 'alive',
+          status: 'alive'
         });
       }
     });
@@ -79,63 +79,46 @@ const initializeSocket = (server) => {
     // ============================================
     socket.on('join-as-user', (data) => {
       const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-
+      
       socket.sessionId = sessionId;
       socket.userType = 'user';
-
+      
       socket.join(sessionId);
-
+      
       logger.info(`User joined with session ID: ${sessionId}`);
-
+      
       socket.emit('session-created', { sessionId });
     });
 
     // User requests session with specific therapist
     socket.on('request-session', (data) => {
       const { therapistId, message } = data;
-
-      logger.info(
-        `[SOCKET] Session request received - SessionId: ${socket.sessionId}, TherapistId: ${therapistId}, UserType: ${socket.userType}`
-      );
-      logger.debug(`[SOCKET] Request data: ${JSON.stringify(data)}`);
-
+      
       if (!socket.sessionId || socket.userType !== 'user') {
-        logger.warn(`[SOCKET] Invalid session state - SessionId: ${socket.sessionId}, UserType: ${socket.userType}`);
         socket.emit('request-failed', { message: 'Invalid session state' });
         return;
       }
 
       if (!therapistId) {
-        logger.warn(`[SOCKET] Missing therapist ID in session request`);
         socket.emit('request-failed', { message: 'Therapist ID required' });
         return;
       }
 
       const therapist = therapists.get(therapistId);
-      logger.debug(`[SOCKET] Therapist lookup for ${therapistId}: ${therapist ? 'found' : 'not found'}`);
-
-      if (!therapist) {
-        logger.warn(`[SOCKET] Therapist ${therapistId} not found in active therapists map`);
-        logger.debug(`[SOCKET] Active therapists: ${JSON.stringify([...therapists.keys()])}`);
-        socket.emit('request-failed', { message: 'The selected therapist is not currently online.' });
-        return;
-      }
-
-      if (!therapist.isAvailable) {
-        logger.warn(`[SOCKET] Therapist ${therapistId} is not available (isAvailable: ${therapist.isAvailable})`);
-        socket.emit('request-failed', { message: 'The selected therapist is not available.' });
+      if (!therapist || !therapist.isAvailable) {
+        socket.emit('request-failed', { message: 'Therapist not available' });
         return;
       }
 
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-
+      
       const request = {
         requestId,
         sessionId: socket.sessionId,
         userId: socket.id,
         therapistId,
         message: message || 'User requesting session',
-        timestamp: new Date(),
+        timestamp: new Date()
       };
 
       pendingRequests.set(requestId, request);
@@ -147,18 +130,17 @@ const initializeSocket = (server) => {
           requestId,
           sessionId: socket.sessionId,
           message: request.message,
-          timestamp: request.timestamp,
+          timestamp: request.timestamp
         });
 
-        logger.info(`[SOCKET] Session request sent: ${requestId} from user to therapist ${therapistId}`);
-
-        socket.emit('request-sent', {
+        logger.info(`Session request sent: ${requestId} from user to therapist ${therapistId}`);
+        
+        socket.emit('request-sent', { 
           requestId,
-          message: 'Request sent to therapist. Waiting for response...',
+          message: 'Request sent to therapist. Waiting for response...' 
         });
       } else {
-        logger.error(`[SOCKET] Therapist socket ${therapist.socketId} not found for therapist ${therapistId}`);
-        socket.emit('request-failed', { message: 'Therapist connection lost. Please try again.' });
+        socket.emit('request-failed', { message: 'Therapist connection lost' });
         pendingRequests.delete(requestId);
       }
     });
@@ -168,6 +150,7 @@ const initializeSocket = (server) => {
     // ============================================
     socket.on('accept-request', (data) => {
       const { requestId } = data;
+      
       if (socket.userType !== 'therapist') {
         socket.emit('error', { message: 'Only therapists can accept requests' });
         return;
@@ -184,7 +167,7 @@ const initializeSocket = (server) => {
         sessionId: request.sessionId,
         therapistId: socket.therapistId,
         userId: request.userId,
-        startTime: new Date(),
+        startTime: new Date()
       };
 
       activeSessions.set(request.sessionId, session);
@@ -204,19 +187,19 @@ const initializeSocket = (server) => {
       if (userSocket) {
         io.to(request.sessionId).emit('session-started', {
           sessionId: request.sessionId,
-          message: 'Session started! You are now connected with your therapist.',
+          message: 'Session started! You are now connected with your therapist.'
         });
       }
 
       logger.info(`Session started: ${request.sessionId} between therapist ${socket.therapistId} and user`);
-
+      
       // Cleanup request
       pendingRequests.delete(requestId);
     });
 
     socket.on('decline-request', (data) => {
       const { requestId, reason } = data;
-
+      
       if (socket.userType !== 'therapist') {
         socket.emit('error', { message: 'Only therapists can decline requests' });
         return;
@@ -232,12 +215,12 @@ const initializeSocket = (server) => {
       const userSocket = io.sockets.sockets.get(request.userId);
       if (userSocket) {
         userSocket.emit('request-declined', {
-          message: reason || 'Therapist declined the session request',
+          message: reason || 'Therapist declined the session request'
         });
       }
 
       logger.info(`Request declined: ${requestId} by therapist ${socket.therapistId}`);
-
+      
       // Cleanup request
       pendingRequests.delete(requestId);
     });
@@ -247,7 +230,7 @@ const initializeSocket = (server) => {
     // ============================================
     socket.on('send-message', (data) => {
       const { sessionId, content } = data;
-
+      
       if (!sessionId || !content || !content.trim()) {
         socket.emit('error', { message: 'Invalid message' });
         return;
@@ -265,12 +248,12 @@ const initializeSocket = (server) => {
         senderType: socket.userType,
         senderId: socket.userType === 'therapist' ? socket.therapistId : 'user',
         timestamp: new Date(),
-        sessionId,
+        sessionId
       };
 
       // Send to all participants in session
       io.to(sessionId).emit('new-message', message);
-
+      
       logger.info(`Message sent in session ${sessionId} by ${socket.userType}: ${content.substring(0, 50)}...`);
     });
 
@@ -279,7 +262,7 @@ const initializeSocket = (server) => {
     // ============================================
     socket.on('end-session', (data) => {
       const { sessionId } = data;
-
+      
       const session = activeSessions.get(sessionId);
       if (!session) {
         socket.emit('error', { message: 'No active session to end' });
@@ -289,7 +272,7 @@ const initializeSocket = (server) => {
       // Notify all participants
       io.to(sessionId).emit('session-ended', {
         message: 'Session has been ended.',
-        endedBy: socket.userType,
+        endedBy: socket.userType
       });
 
       // Make therapist available again
@@ -302,7 +285,7 @@ const initializeSocket = (server) => {
 
       // Cleanup
       activeSessions.delete(sessionId);
-
+      
       logger.info(`Session ended: ${sessionId} by ${socket.userType}`);
     });
 
@@ -316,12 +299,12 @@ const initializeSocket = (server) => {
         // Remove therapist
         therapists.delete(socket.therapistId);
         logger.info(`Therapist ${socket.therapistId} went offline`);
-
+        
         // End any active sessions
         for (const [sessionId, session] of activeSessions.entries()) {
           if (session.therapistId === socket.therapistId) {
             io.to(sessionId).emit('session-ended', {
-              message: 'Therapist disconnected. Session ended.',
+              message: 'Therapist disconnected. Session ended.'
             });
             activeSessions.delete(sessionId);
           }
@@ -333,9 +316,9 @@ const initializeSocket = (server) => {
         const session = activeSessions.get(socket.sessionId);
         if (session) {
           io.to(socket.sessionId).emit('session-ended', {
-            message: 'User disconnected. Session ended.',
+            message: 'User disconnected. Session ended.'
           });
-
+          
           // Make therapist available again
           if (session.therapistId) {
             const therapist = therapists.get(session.therapistId);
@@ -343,28 +326,10 @@ const initializeSocket = (server) => {
               therapist.isAvailable = true;
             }
           }
-
+          
           activeSessions.delete(socket.sessionId);
         }
       }
-    });
-
-    // ============================================
-    // GET AVAILABLE THERAPISTS
-    // ============================================
-    socket.on('get-available-therapists', () => {
-      const availableTherapists = Array.from(therapists.entries())
-        .filter(([_, data]) => data.isAvailable)
-        .map(([id, data]) => ({
-          therapistId: id,
-          name: data.name,
-          isAvailable: data.isAvailable,
-          lastHeartbeat: data.lastHeartbeat,
-          status: 'online',
-        }));
-
-      logger.info(`Sending ${availableTherapists.length} available therapists to client`);
-      socket.emit('available-therapists', { therapists: availableTherapists });
     });
 
     // ============================================
@@ -375,9 +340,9 @@ const initializeSocket = (server) => {
         therapistId: id,
         name: data.name,
         isAvailable: data.isAvailable,
-        lastHeartbeat: data.lastHeartbeat,
+        lastHeartbeat: data.lastHeartbeat
       }));
-
+      
       socket.emit('therapists-list', { therapists: therapistList });
     });
   });
@@ -386,7 +351,7 @@ const initializeSocket = (server) => {
   setInterval(() => {
     const now = new Date();
     const staleThreshold = 120000; // 2 minutes
-
+    
     for (const [therapistId, therapist] of therapists.entries()) {
       if (now - therapist.lastHeartbeat > staleThreshold) {
         logger.info(`Removing stale therapist: ${therapistId}`);
