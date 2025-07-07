@@ -1,6 +1,6 @@
+const httpStatus = require('http-status');
 const { Message, Session } = require('../models/chat.model');
 const ApiError = require('../utils/ApiError');
-const httpStatus = require('http-status');
 const logger = require('../config/logger');
 
 /**
@@ -11,7 +11,7 @@ const logger = require('../config/logger');
  */
 const createSession = async (preferences = {}, sessionType = 'text') => {
   const sessionId = `session_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   const session = await Session.create({
     sessionId,
     userId: 'anonymous',
@@ -20,7 +20,7 @@ const createSession = async (preferences = {}, sessionType = 'text') => {
     sessionType,
     metadata: {
       userPreferences: preferences,
-    }
+    },
   });
 
   logger.info(`Session created: ${sessionId}`);
@@ -34,7 +34,7 @@ const createSession = async (preferences = {}, sessionType = 'text') => {
  */
 const getSessionStatus = async (sessionId) => {
   const session = await Session.findOne({ sessionId });
-  
+
   if (!session) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Session not found');
   }
@@ -45,7 +45,7 @@ const getSessionStatus = async (sessionId) => {
     startTime: session.startTime,
     endTime: session.endTime,
     sessionType: session.sessionType,
-    participantCount: session.participants.length
+    participantCount: session.participants.length,
   };
 };
 
@@ -96,16 +96,16 @@ const saveMessage = async (messageData) => {
  */
 const endSession = async (sessionId) => {
   const session = await Session.findOne({ sessionId });
-  
+
   if (!session) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Session not found');
   }
 
   await Session.updateOne(
     { sessionId },
-    { 
+    {
       status: 'ended',
-      endTime: new Date()
+      endTime: new Date(),
     }
   );
 
@@ -132,7 +132,7 @@ const getAvailableTherapistsCount = async () => {
 const assignTherapist = async (sessionId, therapistId) => {
   await Session.updateOne(
     { sessionId },
-    { 
+    {
       therapistId,
       status: 'active',
       $push: {
@@ -140,15 +140,15 @@ const assignTherapist = async (sessionId, therapistId) => {
           {
             participantId: 'anonymous',
             participantType: 'user',
-            joinedAt: new Date()
+            joinedAt: new Date(),
           },
           {
             participantId: therapistId,
             participantType: 'therapist',
-            joinedAt: new Date()
-          }
-        ]
-      }
+            joinedAt: new Date(),
+          },
+        ],
+      },
     }
   );
 

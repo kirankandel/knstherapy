@@ -10,6 +10,7 @@ const config = require('./config/config');
 const morgan = require('./config/morgan');
 const { jwtStrategy } = require('./config/passport');
 const { authLimiter } = require('./middlewares/rateLimiter');
+const requestLogger = require('./middlewares/requestLogger');
 const routes = require('./routes/v1');
 const { errorConverter, errorHandler } = require('./middlewares/error');
 const ApiError = require('./utils/ApiError');
@@ -40,6 +41,9 @@ app.use(compression());
 // enable cors
 app.use(cors());
 app.options('*', cors());
+
+// request logging middleware
+app.use(requestLogger);
 
 // jwt authentication
 app.use(passport.initialize());
