@@ -10,69 +10,35 @@ export const useWebRTC = ({
 }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null); // Dedicated audio element for remote audio
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(sessionType === 'video');
   const [connectionState, setConnectionState] = useState('disconnected');
+  const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
 
-  // Apply voice masking filter
+  // Don't initialize WebRTC for text sessions
+  const isWebRTCSession = sessionType === 'audio' || sessionType === 'video';
+
+  // Update video enabled state when session type changes
+  useEffect(() => {
+    setIsVideoEnabled(sessionType === 'video');
+  }, [sessionType]);
+
+  // No audio masking - use original stream
   const applyVoiceMasking = useCallback((stream) => {
-    if (!stream || sessionType === 'text') return stream;
+    // Return original stream without any modifications
+    console.log('✅ Using original audio stream (no masking)');
+    return stream;
+  }, []);
 
-    try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      const gainNode = audioContext.createGain();
-      const distortion = audioContext.createWaveShaper();
-      const destination = audioContext.createMediaStreamDestination();
-
-      // Create distortion curve for voice masking
-      const samples = 44100;
-      const curve = new Float32Array(samples);
-      const deg = Math.PI / 180;
-      for (let i = 0; i < samples; i++) {
-        const x = (i * 2) / samples - 1;
-        curve[i] = ((3 + 20) * x * 20 * deg) / (Math.PI + 20 * Math.abs(x));
-      }
-      distortion.curve = curve;
-      distortion.oversample = '4x';
-
-      // Apply pitch shifting (simplified)
-      gainNode.gain.value = 0.7; // Reduce volume slightly
-      
-      // Connect audio nodes
-      source.connect(gainNode);
-      gainNode.connect(distortion);
-      distortion.connect(destination);
-
-      // Replace audio track in stream
-      const maskedStream = new MediaStream();
-      if (stream.getVideoTracks().length > 0) {
-        stream.getVideoTracks().forEach(track => maskedStream.addTrack(track));
-      }
-      destination.stream.getAudioTracks().forEach(track => maskedStream.addTrack(track));
-
-      return maskedStream;
-    } catch (error) {
-      console.warn('Voice masking failed, using original stream:', error);
-      return stream;
-    }
-  }, [sessionType]);
-
-  // Apply video anonymization
+  // No video anonymization - show original video
   const applyVideoAnonymization = useCallback((videoElement) => {
-    if (!videoElement || sessionType !== 'video') return;
-
-    try {
-      // Apply CSS filters for basic anonymization
-      videoElement.style.filter = 'blur(2px) contrast(0.8) brightness(0.9)';
-      videoElement.style.transform = 'scaleX(-1)'; // Mirror effect
-    } catch (error) {
-      console.warn('Video anonymization failed:', error);
-    }
-  }, [sessionType]);
+    // No anonymization applied - show clear video
+    console.log('✅ Using original video (no anonymization)');
+  }, []);
 
   // Initialize peer connection
   const initializePeerConnection = useCallback(() => {
@@ -96,11 +62,31 @@ export const useWebRTC = ({
 
     // Handle remote stream
     pc.ontrack = (event) => {
-      console.log('Received remote stream');
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-        if (sessionType === 'video') {
-          applyVideoAnonymization(remoteVideoRef.current);
+      console.log('📥 Received remote stream');
+      const remoteStream = event.streams[0];
+      
+      if (remoteStream) {
+        console.log('🔊 Remote stream tracks:', remoteStream.getTracks().map(t => t.kind));
+        
+        // Set remote video stream (for video sessions or fallback)
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          // Show therapist video clearly without anonymization
+        }
+        
+        // Set remote audio stream (for all audio/video sessions)
+        if (remoteAudioRef.current && (sessionType === 'audio' || sessionType === 'video')) {
+          remoteAudioRef.current.srcObject = remoteStream;
+          console.log('🔊 Setting remote audio stream');
+          
+          // Handle autoplay policies
+          remoteAudioRef.current.play().then(() => {
+            console.log('✅ Remote audio started playing');
+            setAudioAutoplayBlocked(false);
+          }).catch(error => {
+            console.warn('⚠️ Audio autoplay blocked:', error);
+            setAudioAutoplayBlocked(true);
+          });
         }
       }
     };
@@ -113,12 +99,21 @@ export const useWebRTC = ({
     };
 
     return pc;
-  }, [sessionType, onICECandidate, applyVideoAnonymization]);
+  }, [sessionType, onICECandidate]);
 
   // Start call (get user media and create offer)
   const startCall = useCallback(async () => {
     try {
-      console.log(`Starting ${sessionType} call...`);
+      console.log(`🚀 Starting ${sessionType} call...`);
+      console.log('Session details:', { sessionType, sessionId, userType });
+      
+      // Don't start call for text sessions
+      if (sessionType === 'text') {
+        console.log('✋ Text session - no WebRTC call needed');
+        return;
+      }
+      
+      console.log('✅ Proceeding with WebRTC call setup...');
       
       const constraints = {
         audio: sessionType === 'audio' || sessionType === 'video',
@@ -129,41 +124,58 @@ export const useWebRTC = ({
         } : false
       };
 
+      // Ensure at least audio is requested for non-text sessions
+      if (!constraints.audio && !constraints.video) {
+        constraints.audio = true;
+      }
+
+      console.log('WebRTC constraints:', constraints);
+      
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // Apply voice masking for anonymity
-      const maskedStream = applyVoiceMasking(stream);
-      localStreamRef.current = maskedStream;
+      console.log('✅ Got user media stream:', stream.getTracks().map(t => t.kind));
+        
+        // Use original stream without masking
+        const originalStream = stream;
+        localStreamRef.current = originalStream;
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = maskedStream;
-        if (sessionType === 'video') {
-          applyVideoAnonymization(localVideoRef.current);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = originalStream;
+          // Local video without anonymization
         }
+
+        const pc = initializePeerConnection();
+        
+        // Add tracks to peer connection
+        originalStream.getTracks().forEach(track => {
+          console.log(`🎵 Adding ${track.kind} track to peer connection`);
+          pc.addTrack(track, originalStream);
+        });
+
+        // Create and send offer
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        if (onOffer) {
+          onOffer(offer);
+        }
+
+        setIsCallActive(true);
+        console.log('Call started successfully');
+        
+      } catch (error) {
+        console.error('Failed to start call:', error);
+        
+        // Provide user-friendly error messages
+        if (error.name === 'NotAllowedError') {
+          alert('Camera/microphone access denied. Please allow permissions and try again.');
+        } else if (error.name === 'NotFoundError') {
+          alert('No camera/microphone found. Please check your devices.');
+        } else {
+          alert('Failed to start call: ' + error.message);
+        }
+        throw error;
       }
-
-      const pc = initializePeerConnection();
-      
-      // Add tracks to peer connection
-      maskedStream.getTracks().forEach(track => {
-        pc.addTrack(track, maskedStream);
-      });
-
-      // Create and send offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      
-      if (onOffer) {
-        onOffer(offer);
-      }
-
-      setIsCallActive(true);
-      console.log('Call started successfully');
-    } catch (error) {
-      console.error('Failed to start call:', error);
-      throw error;
-    }
-  }, [sessionType, applyVoiceMasking, applyVideoAnonymization, initializePeerConnection, onOffer]);
+  }, [sessionType, sessionId, userType, initializePeerConnection, onOffer]);
 
   // Answer incoming call
   const answerCall = useCallback(async (offer) => {
@@ -181,22 +193,21 @@ export const useWebRTC = ({
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      // Apply voice masking for anonymity
-      const maskedStream = applyVoiceMasking(stream);
-      localStreamRef.current = maskedStream;
+      // Use original stream without masking
+      const originalStream = stream;
+      localStreamRef.current = originalStream;
 
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = maskedStream;
-        if (sessionType === 'video') {
-          applyVideoAnonymization(localVideoRef.current);
-        }
+        localVideoRef.current.srcObject = originalStream;
+        // Local video without anonymization
       }
 
       const pc = initializePeerConnection();
       
       // Add tracks to peer connection
-      maskedStream.getTracks().forEach(track => {
-        pc.addTrack(track, maskedStream);
+      originalStream.getTracks().forEach(track => {
+        console.log(`🎵 Adding ${track.kind} track to peer connection (answer)`);
+        pc.addTrack(track, originalStream);
       });
 
       // Set remote offer and create answer
@@ -214,7 +225,7 @@ export const useWebRTC = ({
       console.error('Failed to answer call:', error);
       throw error;
     }
-  }, [sessionType, applyVoiceMasking, applyVideoAnonymization, initializePeerConnection, onAnswer]);
+  }, [sessionType, initializePeerConnection, onAnswer]);
 
   // Handle remote answer
   const handleAnswer = useCallback(async (answer) => {
@@ -264,6 +275,19 @@ export const useWebRTC = ({
     }
   }, [isVideoEnabled, sessionType]);
 
+  // Enable audio playback (call when user interacts)
+  const enableAudioPlayback = useCallback(async () => {
+    if (remoteAudioRef.current && audioAutoplayBlocked) {
+      try {
+        await remoteAudioRef.current.play();
+        console.log('✅ Audio playback enabled after user interaction');
+        setAudioAutoplayBlocked(false);
+      } catch (error) {
+        console.error('❌ Failed to enable audio playback:', error);
+      }
+    }
+  }, [audioAutoplayBlocked]);
+
   // End call
   const endCall = useCallback(() => {
     try {
@@ -286,11 +310,15 @@ export const useWebRTC = ({
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
       }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = null;
+      }
 
       setIsCallActive(false);
       setConnectionState('disconnected');
       setIsMuted(false);
       setIsVideoEnabled(sessionType === 'video');
+      setAudioAutoplayBlocked(false);
       
       console.log('Call ended');
     } catch (error) {
@@ -308,16 +336,19 @@ export const useWebRTC = ({
   return {
     localVideoRef,
     remoteVideoRef,
+    remoteAudioRef, // Export the audio ref
     isCallActive,
     isMuted,
     isVideoEnabled,
     connectionState,
+    audioAutoplayBlocked, // Export autoplay status
     startCall,
     answerCall,
     handleAnswer,
     handleICECandidate,
     toggleMute,
     toggleVideo,
+    enableAudioPlayback, // Export audio enable function
     endCall,
   };
 };

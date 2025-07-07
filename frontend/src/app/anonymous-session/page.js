@@ -31,6 +31,55 @@ export default function AnonymousSession() {
   const [availableTherapists, setAvailableTherapists] = useState([]);
   const [requestStatus, setRequestStatus] = useState(null); // 'sending', 'sent', 'failed'
   const [showTherapistList, setShowTherapistList] = useState(false);
+  const [mediaPermissions, setMediaPermissions] = useState({
+    camera: false,
+    microphone: false,
+    requested: false
+  });
+
+  // Request media permissions proactively
+  const requestMediaPermissions = useCallback(async () => {
+    try {
+      console.log('🎥 Requesting camera and microphone permissions...');
+      setMediaPermissions(prev => ({ ...prev, requested: true }));
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true
+      });
+      
+      console.log('✅ Media permissions granted');
+      setMediaPermissions({
+        camera: true,
+        microphone: true,
+        requested: true
+      });
+      
+      // Stop the stream immediately - we just needed permissions
+      stream.getTracks().forEach(track => track.stop());
+      
+    } catch (error) {
+      console.error('❌ Failed to get media permissions:', error);
+      
+      // Try audio only
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setMediaPermissions({
+          camera: false,
+          microphone: true,
+          requested: true
+        });
+        audioStream.getTracks().forEach(track => track.stop());
+      } catch (audioError) {
+        console.error('❌ Failed to get audio permission:', audioError);
+        setMediaPermissions({
+          camera: false,
+          microphone: false,
+          requested: true
+        });
+      }
+    }
+  }, []);
 
   // WebRTC hook for audio/video calls
   const webRTC = useWebRTC({
@@ -119,10 +168,8 @@ export default function AnonymousSession() {
         timestamp: new Date()
       }]);
 
-      // Start WebRTC call for audio/video sessions
-      if ((data.sessionType === 'audio' || data.sessionType === 'video') && webRTC) {
-        webRTC.startCall();
-      }
+      // User side: Don't start call, wait for therapist's offer
+      console.log('📱 User session started with type:', data.sessionType);
     };
 
     const handleNewMessage = (message) => {
@@ -254,10 +301,33 @@ export default function AnonymousSession() {
                 <p><strong>Request Status:</strong> {requestStatus || 'None'}</p>
                 <p><strong>Active Session:</strong> {activeSession ? '✅' : '❌'}</p>
                 <p><strong>Session Type:</strong> {activeSession?.sessionType || sessionType}</p>
+                <p><strong>Camera Permission:</strong> {mediaPermissions.camera ? '✅' : '❌'}</p>
+                <p><strong>Microphone Permission:</strong> {mediaPermissions.microphone ? '✅' : '❌'}</p>
               </div>
+              
+              {/* Media Permissions Button */}
+              {(sessionType === 'audio' || sessionType === 'video') && !mediaPermissions.requested && (
+                <button
+                  onClick={requestMediaPermissions}
+                  className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                >
+                  🎥 Enable {sessionType === 'video' ? 'Camera & Microphone' : 'Microphone'}
+                </button>
+              )}
+              
+              {(sessionType === 'audio' || sessionType === 'video') && mediaPermissions.requested && 
+               ((sessionType === 'video' && !mediaPermissions.camera) || !mediaPermissions.microphone) && (
+                <button
+                  onClick={requestMediaPermissions}
+                  className="mt-3 w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                >
+                  🔄 Retry Permissions
+                </button>
+              )}
+              
               <button
                 onClick={handleDisconnect}
-                className="mt-3 bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded-md"
               >
                 Disconnect
               </button>
@@ -286,7 +356,14 @@ export default function AnonymousSession() {
                         name="sessionType"
                         value={type.id}
                         checked={sessionType === type.id}
-                        onChange={(e) => setSessionType(e.target.value)}
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          setSessionType(newType);
+                          // Auto-request permissions for audio/video
+                          if ((newType === 'audio' || newType === 'video') && !mediaPermissions.requested) {
+                            setTimeout(() => requestMediaPermissions(), 100);
+                          }
+                        }}
                         className="hidden"
                       />
                       <span className="text-2xl mr-3">{type.icon}</span>
@@ -433,7 +510,7 @@ export default function AnonymousSession() {
                               className="w-full h-full object-cover"
                             />
                             <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                              You (Anonymized)
+                              You
                             </div>
                           </div>
                           <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
@@ -456,13 +533,33 @@ export default function AnonymousSession() {
                           <div className="bg-gray-900 rounded-lg p-8 text-center">
                             <div className="text-4xl mb-4">🎤</div>
                             <p className="text-white">Voice Call Active</p>
-                            <p className="text-gray-300 text-sm">Voice masking enabled</p>
+                            <p className="text-gray-300 text-sm">Clear audio and video</p>
                           </div>
                         </div>
                       )}
 
+                      {/* Hidden audio element for remote audio playback */}
+                      {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && (
+                        <audio
+                          ref={webRTC.remoteAudioRef}
+                          autoPlay
+                          playsInline
+                          style={{ display: 'none' }}
+                        />
+                      )}
+
                       {/* Call Controls */}
                       <div className="flex justify-center space-x-4">
+                        {/* Audio autoplay blocked warning */}
+                        {webRTC.audioAutoplayBlocked && (
+                          <button
+                            onClick={() => webRTC.enableAudioPlayback()}
+                            className="px-4 py-2 rounded-full bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
+                          >
+                            🔊 Enable Audio
+                          </button>
+                        )}
+                        
                         <button
                           onClick={() => webRTC.toggleMute()}
                           className={`px-4 py-2 rounded-full ${

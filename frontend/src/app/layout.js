@@ -15,19 +15,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "KNS Therapy - Anonymous Mental Health Support",
-  description: "Secure, anonymous mental health care. Connect with therapists, AI support, and peer communities without revealing your identity.",
+  title: "KNS Therapy – Anonymous Mental Health Support",
+  description:
+    "Compassionate, anonymous mental health care. Connect with licensed therapists, AI-guided tools, and peer communities—safely and privately.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head />
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-slate-50 text-slate-800 min-h-screen flex flex-col`}
       >
         <AuthProvider>
           <Header />
-          {children}
+          <main role="main" className="flex-grow">
+            {children}
+          </main>
           <Footer />
         </AuthProvider>
       </body>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
+import { useWebRTC } from '../../hooks/useWebRTC';
 
 export default function TherapistDashboard() {
   const { user } = useAuth();
@@ -17,6 +18,10 @@ export default function TherapistDashboard() {
     declineRequest,
     sendMessage,
     endSession,
+    sendWebRTCOffer,
+    sendWebRTCAnswer,
+    sendICECandidate,
+    endCall,
     addEventListener,
     removeEventListener,
   } = useSocket();
@@ -26,6 +31,33 @@ export default function TherapistDashboard() {
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [mediaPermissions, setMediaPermissions] = useState({
+    camera: false,
+    microphone: false,
+    requested: false
+  });
+
+  // WebRTC hook for audio/video calls
+  const webRTC = useWebRTC({
+    sessionId,
+    sessionType: activeSession?.sessionType || 'text',
+    userType: 'therapist',
+    onOffer: (offer) => {
+      if (sessionId) {
+        sendWebRTCOffer(sessionId, offer, 'user');
+      }
+    },
+    onAnswer: (answer) => {
+      if (sessionId) {
+        sendWebRTCAnswer(sessionId, answer, 'user');
+      }
+    },
+    onICECandidate: (candidate) => {
+      if (sessionId) {
+        sendICECandidate(sessionId, candidate, 'user');
+      }
+    },
+  });
 
   // Connect when component mounts
   useEffect(() => {
@@ -42,11 +74,37 @@ export default function TherapistDashboard() {
         name: user.name || 'Anonymous Therapist',
         specialties: user.therapistProfile?.specialties || ['general'],
         experience: user.therapistProfile?.experience || 'Professional therapist',
-        bio: user.therapistProfile?.bio || `Hi! I'm ${user.name || 'a professional therapist'} and I'm here to help you.`
+        bio: user.therapistProfile?.bio || `Hi! I'm ${user.name || 'a professional therapist'} and I'm here to help you.`,
+        supportedSessionTypes: ['text', 'audio', 'video'] // Support all session types
       });
       setIsOnline(true);
     }
   }, [isConnected, user, joinAsTherapist, isOnline]);
+
+  // Start WebRTC call when session becomes active for audio/video
+  useEffect(() => {
+    if (activeSession && (activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC) {
+      console.log('🎥 Session is active with type:', activeSession.sessionType);
+      console.log('WebRTC object available:', !!webRTC);
+      console.log('WebRTC startCall function:', typeof webRTC.startCall);
+      
+      // Small delay to ensure WebRTC hook has updated with new session type
+      setTimeout(() => {
+        try {
+          console.log('Calling webRTC.startCall() for', activeSession.sessionType, 'session');
+          webRTC.startCall().then(() => {
+            console.log('✅ WebRTC call started successfully');
+          }).catch((error) => {
+            console.error('❌ Failed to start WebRTC call:', error);
+            alert('Failed to start call: ' + error.message);
+          });
+        } catch (error) {
+          console.error('❌ Error calling webRTC.startCall():', error);
+          alert('Error starting call: ' + error.message);
+        }
+      }, 1000);
+    }
+  }, [activeSession, webRTC]);
 
   // Send heartbeat every 30 seconds
   useEffect(() => {
@@ -70,13 +128,19 @@ export default function TherapistDashboard() {
 
     const handleSessionStarted = (data) => {
       console.log('✅ Session started:', data);
-      setActiveSession({ sessionId: data.sessionId, startTime: new Date() });
+      setActiveSession({ 
+        sessionId: data.sessionId, 
+        sessionType: data.sessionType || 'text',
+        startTime: new Date() 
+      });
       setMessages([{
         id: 'system-1',
         content: 'Session started! You are now connected with a user.',
         senderType: 'system',
         timestamp: new Date()
       }]);
+
+      // WebRTC call will be initiated by useEffect when activeSession changes
     };
 
     const handleNewMessage = (message) => {
@@ -86,22 +150,63 @@ export default function TherapistDashboard() {
 
     const handleSessionEnded = (data) => {
       console.log('🔚 Session ended:', data);
+      // End WebRTC call if active
+      if ((activeSession?.sessionType === 'audio' || activeSession?.sessionType === 'video') && webRTC) {
+        webRTC.endCall();
+      }
       setActiveSession(null);
       setMessages([]);
+    };
+
+    // WebRTC event handlers
+    const handleWebRTCOffer = (data) => {
+      console.log('📞 Received WebRTC offer:', data);
+      if (webRTC && data.targetId === 'therapist') {
+        webRTC.answerCall(data.offer);
+      }
+    };
+
+    const handleWebRTCAnswer = (data) => {
+      console.log('📞 Received WebRTC answer:', data);
+      if (webRTC && data.targetId === 'therapist') {
+        webRTC.handleAnswer(data.answer);
+      }
+    };
+
+    const handleICECandidate = (data) => {
+      console.log('📞 Received ICE candidate:', data);
+      if (webRTC && data.targetId === 'therapist') {
+        webRTC.handleICECandidate(data.candidate);
+      }
+    };
+
+    const handleCallEnded = (data) => {
+      console.log('📞 Call ended:', data);
+      if (webRTC) {
+        webRTC.endCall();
+      }
     };
 
     addEventListener('session-request', handleSessionRequest);
     addEventListener('session-started', handleSessionStarted);
     addEventListener('new-message', handleNewMessage);
     addEventListener('session-ended', handleSessionEnded);
+    addEventListener('webrtc-offer', handleWebRTCOffer);
+    addEventListener('webrtc-answer', handleWebRTCAnswer);
+    addEventListener('ice-candidate', handleICECandidate);
+    addEventListener('call-ended', handleCallEnded);
 
     return () => {
       removeEventListener('session-request');
       removeEventListener('session-started');
       removeEventListener('new-message');
       removeEventListener('session-ended');
+      removeEventListener('webrtc-offer');
+      removeEventListener('webrtc-answer');
+      removeEventListener('ice-candidate');
+      removeEventListener('call-ended');
     };
-  }, [isConnected, addEventListener, removeEventListener]);
+  }, [isConnected, addEventListener, removeEventListener, activeSession?.sessionType, webRTC]);
 
   const handleAcceptRequest = useCallback((request) => {
     acceptRequest(request.requestId);
@@ -122,15 +227,68 @@ export default function TherapistDashboard() {
 
   const handleEndSession = useCallback(() => {
     if (activeSession) {
+      // End WebRTC call if active
+      if ((activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC) {
+        webRTC.endCall();
+      }
       endSession(activeSession.sessionId);
     }
-  }, [activeSession, endSession]);
+  }, [activeSession, endSession, webRTC]);
 
   const handleGoOffline = useCallback(() => {
     setIsOnline(false);
     sendHeartbeat(false);
     disconnect();
   }, [sendHeartbeat, disconnect]);
+
+  // Request media permissions proactively
+  const requestMediaPermissions = useCallback(async () => {
+    try {
+      console.log('🎥 Requesting camera and microphone permissions...');
+      setMediaPermissions(prev => ({ ...prev, requested: true }));
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true
+      });
+      
+      console.log('✅ Media permissions granted');
+      setMediaPermissions({
+        camera: true,
+        microphone: true,
+        requested: true
+      });
+      
+      // Stop the stream immediately - we just needed permissions
+      stream.getTracks().forEach(track => track.stop());
+      
+    } catch (error) {
+      console.error('❌ Failed to get media permissions:', error);
+      
+      // Try audio only
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setMediaPermissions({
+          camera: false,
+          microphone: true,
+          requested: true
+        });
+        audioStream.getTracks().forEach(track => track.stop());
+      } catch (audioError) {
+        console.error('❌ Failed to get audio permission:', audioError);
+        setMediaPermissions({
+          camera: false,
+          microphone: false,
+          requested: true
+        });
+      }
+    }
+  }, []);
+
+  // Request media permissions on mount
+  useEffect(() => {
+    requestMediaPermissions();
+  }, [requestMediaPermissions]);
 
   if (!user || user.userType !== 'therapist') {
     return (
@@ -181,7 +339,35 @@ export default function TherapistDashboard() {
                 <p><strong>Therapist ID:</strong> {user?.id}</p>
                 <p><strong>Pending Requests:</strong> {pendingRequests.length}</p>
                 <p><strong>Active Session:</strong> {activeSession ? '✅' : '❌'}</p>
+                <p><strong>Session Type:</strong> {activeSession?.sessionType || 'None'}</p>
+                {webRTC && (
+                  <>
+                    <p><strong>WebRTC Active:</strong> {webRTC.isCallActive ? '✅' : '❌'}</p>
+                    <p><strong>Connection State:</strong> {webRTC.connectionState}</p>
+                  </>
+                )}
+                <p><strong>Camera Permission:</strong> {mediaPermissions.camera ? '✅' : '❌'}</p>
+                <p><strong>Microphone Permission:</strong> {mediaPermissions.microphone ? '✅' : '❌'}</p>
               </div>
+              
+              {/* Media Permissions Button */}
+              {!mediaPermissions.requested && (
+                <button
+                  onClick={requestMediaPermissions}
+                  className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                >
+                  🎥 Enable Camera & Microphone
+                </button>
+              )}
+              
+              {mediaPermissions.requested && (!mediaPermissions.camera || !mediaPermissions.microphone) && (
+                <button
+                  onClick={requestMediaPermissions}
+                  className="mt-3 w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                >
+                  🔄 Retry Permissions
+                </button>
+              )}
             </div>
 
             {/* Pending Requests */}
@@ -198,7 +384,21 @@ export default function TherapistDashboard() {
                   {pendingRequests.map((request) => (
                     <div key={request.requestId} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium text-gray-900">New Session Request</h4>
+                        <div>
+                          <h4 className="font-medium text-gray-900">New Session Request</h4>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              request.sessionType === 'video' ? 'bg-purple-100 text-purple-800' :
+                              request.sessionType === 'audio' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {request.sessionType === 'video' && '📹 Video Call'}
+                              {request.sessionType === 'audio' && '🎤 Voice Call'}
+                              {request.sessionType === 'text' && '💬 Text Chat'}
+                              {!request.sessionType && '💬 Text Chat'}
+                            </span>
+                          </div>
+                        </div>
                         <span className="text-xs text-gray-500">
                           {new Date(request.timestamp).toLocaleTimeString()}
                         </span>
@@ -228,76 +428,200 @@ export default function TherapistDashboard() {
           {/* Right Column - Active Session */}
           <div>
             {activeSession ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Active Session</h3>
-                  <button
-                    onClick={handleEndSession}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-                  >
-                    End Session
-                  </button>
-                </div>
-                
-                {/* Messages */}
-                <div className="h-96 border rounded-lg p-4 mb-4 overflow-y-auto bg-gray-50">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`mb-3 ${
-                        message.senderType === 'therapist' ? 'text-right' : 'text-left'
-                      }`}
-                    >
-                      <div
-                        className={`inline-block max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
-                          message.senderType === 'therapist'
-                            ? 'bg-blue-600 text-white'
-                            : message.senderType === 'system'
-                            ? 'bg-gray-200 text-gray-800'
-                            : 'bg-white text-gray-900 border'
-                        }`}
-                      >
-                        {message.content}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </div>
+              <div className="space-y-6">
+                {/* Session Header */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {activeSession.sessionType === 'text' && '💬 Text Chat Session'}
+                        {activeSession.sessionType === 'audio' && '🎤 Voice Call Session'}
+                        {activeSession.sessionType === 'video' && '📹 Video Call Session'}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Started {activeSession.startTime.toLocaleTimeString()}
+                      </p>
                     </div>
-                  ))}
+                    <button
+                      onClick={handleEndSession}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium"
+                    >
+                      End Session
+                    </button>
+                  </div>
                 </div>
 
-                {/* Message Input */}
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Type your message..."
-                    className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm"
-                  >
-                    Send
-                  </button>
+                {/* WebRTC Video/Audio UI */}
+                {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC && (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="space-y-4">
+                      {/* Video Elements */}
+                      {activeSession.sessionType === 'video' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                            <video
+                              ref={webRTC.localVideoRef}
+                              autoPlay
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                              You (Therapist)
+                            </div>
+                          </div>
+                          <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                            <video
+                              ref={webRTC.remoteVideoRef}
+                              autoPlay
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                              User (Anonymized)
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Audio Elements */}
+                      {activeSession.sessionType === 'audio' && (
+                        <div className="flex justify-center">
+                          <div className="bg-gray-900 rounded-lg p-8 text-center">
+                            <div className="text-4xl mb-4">🎤</div>
+                            <p className="text-white">Voice Call Active</p>
+                            <p className="text-gray-300 text-sm">Clear audio and video</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hidden audio element for remote audio playback */}
+                      {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && (
+                        <audio
+                          ref={webRTC.remoteAudioRef}
+                          autoPlay
+                          playsInline
+                          style={{ display: 'none' }}
+                        />
+                      )}
+
+                      {/* Call Controls */}
+                      <div className="flex justify-center space-x-4">
+                        {/* Audio autoplay blocked warning */}
+                        {webRTC.audioAutoplayBlocked && (
+                          <button
+                            onClick={() => webRTC.enableAudioPlayback()}
+                            className="px-4 py-2 rounded-full bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
+                          >
+                            🔊 Enable Audio
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => webRTC.toggleMute()}
+                          className={`px-4 py-2 rounded-full ${
+                            webRTC.isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
+                          } text-white transition-colors`}
+                        >
+                          {webRTC.isMuted ? '🔇' : '🎤'}
+                        </button>
+                        
+                        {activeSession.sessionType === 'video' && (
+                          <button
+                            onClick={() => webRTC.toggleVideo()}
+                            className={`px-4 py-2 rounded-full ${
+                              !webRTC.isVideoEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
+                            } text-white transition-colors`}
+                          >
+                            {!webRTC.isVideoEnabled ? '📹❌' : '📹'}
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => webRTC.endCall()}
+                          className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
+                        >
+                          📞❌
+                        </button>
+                      </div>
+
+                      {/* Connection Status */}
+                      <div className="text-center text-sm text-gray-500">
+                        Connection: {webRTC.connectionState || 'connecting...'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Chat Interface (always available) */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-semibold text-gray-900">
+                      {activeSession.sessionType === 'text' ? 'Chat' : 'Chat (supplementary)'}
+                    </h4>
+                  </div>
+                  
+                  {/* Messages */}
+                  <div className="h-96 border rounded-lg p-4 mb-4 overflow-y-auto bg-gray-50">
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`mb-3 ${
+                          message.senderType === 'therapist' ? 'text-right' : 'text-left'
+                        }`}
+                      >
+                        <div
+                          className={`inline-block max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                            message.senderType === 'therapist'
+                              ? 'bg-blue-600 text-white'
+                              : message.senderType === 'system'
+                              ? 'bg-gray-200 text-gray-800'
+                              : 'bg-white text-gray-900 border'
+                          }`}
+                        >
+                          {message.content}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Message Input */}
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                      placeholder="Type your message..."
+                      className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm"
+                    >
+                      Send
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow p-8 text-center">
                 <div className="text-gray-400">
-                  <svg className="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.959 8.959 0 01-4.906-1.459L3 21l2.459-5.094A8.959 8.959 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z" />
-                  </svg>
+                  <div className="text-6xl mb-4">👩‍⚕️</div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Session</h3>
-                  <p className="text-gray-500">
+                  <p className="text-gray-500 mb-4">
                     {isOnline 
                       ? 'When a user requests a session, it will appear here.'
                       : 'Go online to start receiving session requests.'
                     }
                   </p>
+                  <div className="text-sm text-gray-400">
+                    Supports: Text Chat • Voice Calls • Video Sessions
+                  </div>
                 </div>
               </div>
             )}
