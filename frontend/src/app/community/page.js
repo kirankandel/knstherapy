@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function Community() {
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -13,6 +14,8 @@ export default function Community() {
     category: "",
     isAnonymous: true
   });
+
+  const { isAuthenticated, user } = useAuth();
 
   const forumCategories = [
     {
@@ -100,6 +103,32 @@ export default function Community() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Anonymous Browsing Notice */}
+        {!isAuthenticated && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Browsing Anonymously
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>
+                    You&apos;re viewing community posts anonymously. 
+                    <Link href="/signup/community" className="font-medium underline hover:text-yellow-800 ml-1">
+                      Join our community
+                    </Link> to post, comment, and connect with others.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Anonymous Community</h1>
@@ -230,16 +259,44 @@ export default function Community() {
           <div className="space-y-6">
             {/* New Post */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <button 
-                onClick={() => setShowCreatePost(true)}
-                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors text-lg font-medium mb-4"
-              >
-                Create Anonymous Post
-              </button>
-              <p className="text-gray-600 text-sm">
-                Share your thoughts, ask questions, or offer support to the community. 
-                Your identity remains completely protected.
-              </p>
+              {isAuthenticated ? (
+                <>
+                  <button 
+                    onClick={() => setShowCreatePost(true)}
+                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors text-lg font-medium mb-4"
+                  >
+                    Create Anonymous Post
+                  </button>
+                  <p className="text-gray-600 text-sm">
+                    Share your thoughts, ask questions, or offer support to the community. 
+                    Your identity remains completely protected.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-center mb-4">
+                    <div className="text-4xl mb-2">🔒</div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Join to Participate</h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Create an account to post and engage with the community. Your anonymity is always protected.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Link
+                      href="/signup/community"
+                      className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors text-center block font-medium"
+                    >
+                      Join Community
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-200 transition-colors text-center block font-medium"
+                    >
+                      Sign In
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Community Guidelines */}
