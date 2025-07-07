@@ -6,10 +6,10 @@ let io;
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || "http://localhost:3000",
-      methods: ["GET", "POST"],
-      credentials: true
-    }
+      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
   });
 
   // Store active sessions and connections
@@ -30,18 +30,18 @@ const initializeSocket = (server) => {
       const sessionId = generateSessionId();
       socket.sessionId = sessionId;
       socket.userType = 'user';
-      
+
       socket.join(sessionId);
       userQueue.set(sessionId, {
         socketId: socket.id,
         timestamp: new Date(),
-        preferences: data.preferences || {}
+        preferences: data.preferences || {},
       });
 
       logger.info(`User joined with session: ${sessionId}`);
-      
+
       socket.emit('session-created', { sessionId });
-      
+
       // Try to match with available therapist
       matchUserWithTherapist(socket, sessionId);
     });
@@ -51,18 +51,18 @@ const initializeSocket = (server) => {
       const therapistId = data.therapistId || `therapist_${Math.random().toString(36).substr(2, 9)}`;
       socket.therapistId = therapistId;
       socket.userType = 'therapist';
-      
+
       therapistQueue.set(therapistId, {
         socketId: socket.id,
         timestamp: new Date(),
         specialties: data.specialties || [],
-        isAvailable: true
+        isAvailable: true,
       });
 
       logger.info(`Therapist joined: ${therapistId}`);
-      
+
       socket.emit('therapist-registered', { therapistId });
-      
+
       // Try to match with waiting users
       matchTherapistWithUser(socket, therapistId);
     });
@@ -70,7 +70,7 @@ const initializeSocket = (server) => {
     // Handle chat messages
     socket.on('send-message', (data) => {
       const { sessionId, content, messageType = 'text' } = data;
-      
+
       if (!sessionId || !content.trim()) {
         socket.emit('error', { message: 'Invalid message data' });
         return;
@@ -83,12 +83,12 @@ const initializeSocket = (server) => {
         senderType: socket.userType,
         senderId: socket.userType === 'therapist' ? socket.therapistId : 'anonymous',
         timestamp: new Date(),
-        sessionId
+        sessionId,
       };
 
       // Emit message to all participants in the session
       io.to(sessionId).emit('new-message', message);
-      
+
       logger.info(`Message sent in session ${sessionId} by ${socket.userType}`);
     });
 
@@ -97,7 +97,7 @@ const initializeSocket = (server) => {
       if (socket.sessionId) {
         socket.to(socket.sessionId).emit('user-typing', {
           senderType: socket.userType,
-          isTyping: true
+          isTyping: true,
         });
       }
     });
@@ -106,7 +106,7 @@ const initializeSocket = (server) => {
       if (socket.sessionId) {
         socket.to(socket.sessionId).emit('user-typing', {
           senderType: socket.userType,
-          isTyping: false
+          isTyping: false,
         });
       }
     });
@@ -114,19 +114,19 @@ const initializeSocket = (server) => {
     // End session
     socket.on('end-session', (data) => {
       const { sessionId } = data;
-      
+
       if (sessionId && activeSessions.has(sessionId)) {
         const session = activeSessions.get(sessionId);
-        
+
         // Notify all participants
         io.to(sessionId).emit('session-ended', {
           message: 'Session has been ended. All data has been permanently deleted.',
-          endedBy: socket.userType
+          endedBy: socket.userType,
         });
 
         // Clean up session data
         activeSessions.delete(sessionId);
-        
+
         logger.info(`Session ${sessionId} ended by ${socket.userType}`);
       }
     });
@@ -134,27 +134,28 @@ const initializeSocket = (server) => {
     // Handle disconnect
     socket.on('disconnect', () => {
       logger.info(`Socket disconnected: ${socket.id}`);
-      
+
       // Clean up user/therapist from queues
       if (socket.userType === 'user' && socket.sessionId) {
         userQueue.delete(socket.sessionId);
-        
+
         // Notify therapist if session was active
         if (activeSessions.has(socket.sessionId)) {
           socket.to(socket.sessionId).emit('participant-disconnected', {
-            message: 'The user has disconnected from the session.'
+            message: 'The user has disconnected from the session.',
           });
         }
       } else if (socket.userType === 'therapist' && socket.therapistId) {
         therapistQueue.delete(socket.therapistId);
-        
+
         // Notify user if session was active
-        const activeSession = Array.from(activeSessions.values())
-          .find(session => session.therapistId === socket.therapistId);
-          
+        const activeSession = Array.from(activeSessions.values()).find(
+          (session) => session.therapistId === socket.therapistId
+        );
+
         if (activeSession) {
           socket.to(activeSession.sessionId).emit('participant-disconnected', {
-            message: 'The therapist has disconnected from the session.'
+            message: 'The therapist has disconnected from the session.',
           });
         }
       }
@@ -162,29 +163,28 @@ const initializeSocket = (server) => {
 
     // Matching logic
     function matchUserWithTherapist(userSocket, sessionId) {
-      const availableTherapists = Array.from(therapistQueue.entries())
-        .filter(([_, therapist]) => therapist.isAvailable);
+      const availableTherapists = Array.from(therapistQueue.entries()).filter(([_, therapist]) => therapist.isAvailable);
 
       if (availableTherapists.length > 0) {
         const [therapistId, therapistData] = availableTherapists[0];
-        
+
         // Create active session
         const session = {
           sessionId,
           userId: 'anonymous',
           therapistId,
           startTime: new Date(),
-          status: 'active'
+          status: 'active',
         };
 
         activeSessions.set(sessionId, session);
-        
+
         // Join therapist to session room
         const therapistSocket = io.sockets.sockets.get(therapistData.socketId);
         if (therapistSocket) {
           therapistSocket.join(sessionId);
           therapistSocket.sessionId = sessionId;
-          
+
           // Mark therapist as unavailable
           therapistQueue.get(therapistId).isAvailable = false;
         }
@@ -195,7 +195,8 @@ const initializeSocket = (server) => {
         // Notify both parties
         io.to(sessionId).emit('session-matched', {
           sessionId,
-          message: 'You have been connected with a mental health professional. This conversation is completely anonymous and encrypted.'
+          message:
+            'You have been connected with a mental health professional. This conversation is completely anonymous and encrypted.',
         });
 
         logger.info(`Matched session ${sessionId}: user with therapist ${therapistId}`);
@@ -203,7 +204,7 @@ const initializeSocket = (server) => {
         // No therapists available
         userSocket.emit('waiting-for-therapist', {
           message: 'Please wait while we connect you with an available therapist...',
-          estimatedWait: '2-5 minutes'
+          estimatedWait: '2-5 minutes',
         });
       }
     }
@@ -213,22 +214,22 @@ const initializeSocket = (server) => {
 
       if (waitingUsers.length > 0) {
         const [sessionId, userData] = waitingUsers[0];
-        
+
         // Create active session
         const session = {
           sessionId,
           userId: 'anonymous',
           therapistId,
           startTime: new Date(),
-          status: 'active'
+          status: 'active',
         };
 
         activeSessions.set(sessionId, session);
-        
+
         // Join therapist to session room
         therapistSocket.join(sessionId);
         therapistSocket.sessionId = sessionId;
-        
+
         // Mark therapist as unavailable
         therapistQueue.get(therapistId).isAvailable = false;
 
@@ -238,7 +239,8 @@ const initializeSocket = (server) => {
         // Notify both parties
         io.to(sessionId).emit('session-matched', {
           sessionId,
-          message: 'You have been connected with a mental health professional. This conversation is completely anonymous and encrypted.'
+          message:
+            'You have been connected with a mental health professional. This conversation is completely anonymous and encrypted.',
         });
 
         logger.info(`Matched session ${sessionId}: therapist ${therapistId} with user`);
@@ -258,5 +260,5 @@ const getIO = () => {
 
 module.exports = {
   initializeSocket,
-  getIO
+  getIO,
 };

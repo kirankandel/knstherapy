@@ -1,6 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Header() {
+  const { isAuthenticated, user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
   return (
     <header className="bg-white shadow-sm border-b">
       <nav className="max-w-6xl mx-auto px-4">
@@ -35,12 +48,35 @@ export default function Header() {
               <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
               Anonymous & Secure
             </div>
-            <Link 
-              href="/anonymous-session"
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
-            >
-              Get Help Now
-            </Link>
+            
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-600">
+                  {user?.userType === 'therapist' ? `Dr. ${user.name}` : user?.username || user?.name}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Link 
+                  href="/login"
+                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  href="/anonymous-session"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+                >
+                  Get Help Now
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
