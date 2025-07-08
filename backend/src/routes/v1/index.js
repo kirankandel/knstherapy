@@ -7,6 +7,7 @@ const therapistRoute = require('./therapist.route');
 const communityRoute = require('./community.route');
 const ratingRoute = require('./rating.route');
 const analyticsRoute = require('./analytics.route');
+const pdfRoute = require('./pdf.route');
 const config = require('../../config/config');
 
 const router = express.Router();
@@ -39,6 +40,10 @@ const defaultRoutes = [
   {
     path: '/analytics',
     route: analyticsRoute,
+  },
+  {
+    path: '/pdf',
+    route: pdfRoute,
   },
 ];
 

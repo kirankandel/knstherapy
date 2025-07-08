@@ -1,6 +1,6 @@
+const httpStatus = require('http-status');
 const { Rating } = require('../models');
 const ApiError = require('../utils/ApiError');
-const httpStatus = require('http-status');
 
 /**
  * Get comprehensive dashboard analytics for a therapist
@@ -10,18 +10,19 @@ const httpStatus = require('http-status');
  */
 const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
   const { startDate, endDate } = options;
-  
+
+  // Default to last 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
   // Build date filter
   const dateFilter = {};
   if (startDate && endDate) {
     dateFilter.createdAt = {
       $gte: new Date(startDate),
-      $lte: new Date(endDate)
+      $lte: new Date(endDate),
     };
   } else {
-    // Default to last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     dateFilter.createdAt = { $gte: thirtyDaysAgo };
   }
 
@@ -31,7 +32,7 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
     // Get basic stats
     const totalRatings = await Rating.countDocuments({ therapistId });
     const recentRatings = await Rating.countDocuments(baseFilter);
-    
+
     // Get rating statistics
     const ratingStats = await Rating.aggregate([
       { $match: { therapistId } },
@@ -41,16 +42,16 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
           averageRating: { $avg: '$rating' },
           totalRatings: { $sum: 1 },
           ratingsBreakdown: {
-            $push: '$rating'
-          }
-        }
-      }
+            $push: '$rating',
+          },
+        },
+      },
     ]);
 
     // Get ratings distribution
     const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     if (ratingStats.length > 0) {
-      ratingStats[0].ratingsBreakdown.forEach(rating => {
+      ratingStats[0].ratingsBreakdown.forEach((rating) => {
         ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
       });
     }
@@ -62,9 +63,9 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
         $group: {
           _id: '$sessionType',
           count: { $sum: 1 },
-          averageRating: { $avg: '$rating' }
-        }
-      }
+          averageRating: { $avg: '$rating' },
+        },
+      },
     ]);
 
     // Get ratings over time (weekly)
@@ -75,38 +76,38 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
           _id: {
             year: { $year: '$createdAt' },
             month: { $month: '$createdAt' },
-            week: { $week: '$createdAt' }
+            week: { $week: '$createdAt' },
           },
           count: { $sum: 1 },
-          averageRating: { $avg: '$rating' }
-        }
+          averageRating: { $avg: '$rating' },
+        },
       },
-      { $sort: { '_id.year': 1, '_id.month': 1, '_id.week': 1 } }
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.week': 1 } },
     ]);
 
     // Get daily activity (last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
+
     const dailyActivity = await Rating.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           therapistId,
-          createdAt: { $gte: sevenDaysAgo }
-        }
+          createdAt: { $gte: sevenDaysAgo },
+        },
       },
       {
         $group: {
           _id: {
             year: { $year: '$createdAt' },
             month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' }
+            day: { $dayOfMonth: '$createdAt' },
           },
           sessionsCount: { $sum: 1 },
-          averageRating: { $avg: '$rating' }
-        }
+          averageRating: { $avg: '$rating' },
+        },
       },
-      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
     ]);
 
     // Get recent feedback
@@ -120,8 +121,8 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
       totalSessions: totalRatings,
       recentSessions: recentRatings,
       averageRating: ratingStats.length > 0 ? Math.round(ratingStats[0].averageRating * 10) / 10 : 0,
-      satisfactionRate: ratingStats.length > 0 ? 
-        Math.round(((ratingDistribution[4] + ratingDistribution[5]) / totalRatings) * 100) : 0,
+      satisfactionRate:
+        ratingStats.length > 0 ? Math.round(((ratingDistribution[4] + ratingDistribution[5]) / totalRatings) * 100) : 0,
       responseRate: 100, // Assuming all sessions get rated for now
     };
 
@@ -131,7 +132,7 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
       sessionTypeStats: sessionTypeStats.reduce((acc, item) => {
         acc[item._id] = {
           count: item.count,
-          averageRating: Math.round(item.averageRating * 10) / 10
+          averageRating: Math.round(item.averageRating * 10) / 10,
         };
         return acc;
       }, {}),
@@ -140,11 +141,11 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
       recentFeedback,
       dateRange: {
         startDate: startDate || thirtyDaysAgo.toISOString(),
-        endDate: endDate || new Date().toISOString()
-      }
+        endDate: endDate || new Date().toISOString(),
+      },
     };
   } catch (error) {
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to fetch analytics data');
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, error);
   }
 };
 
@@ -155,25 +156,25 @@ const getTherapistDashboardAnalytics = async (therapistId, options = {}) => {
 const getSystemAnalytics = async () => {
   try {
     const totalRatings = await Rating.countDocuments();
-    const totalTherapists = await Rating.distinct('therapistId').then(ids => ids.length);
-    
+    const totalTherapists = await Rating.distinct('therapistId').then((ids) => ids.length);
+
     const overallStats = await Rating.aggregate([
       {
         $group: {
           _id: null,
           averageRating: { $avg: '$rating' },
-          totalSessions: { $sum: 1 }
-        }
-      }
+          totalSessions: { $sum: 1 },
+        },
+      },
     ]);
 
     const sessionTypeDistribution = await Rating.aggregate([
       {
         $group: {
           _id: '$sessionType',
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     return {
@@ -183,7 +184,7 @@ const getSystemAnalytics = async () => {
       sessionTypeDistribution: sessionTypeDistribution.reduce((acc, item) => {
         acc[item._id] = item.count;
         return acc;
-      }, {})
+      }, {}),
     };
   } catch (error) {
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to fetch system analytics');
@@ -197,7 +198,7 @@ const getSystemAnalytics = async () => {
  */
 const getTherapistLeaderboard = async (options = {}) => {
   const { limit = 10 } = options;
-  
+
   try {
     const leaderboard = await Rating.aggregate([
       {
@@ -205,23 +206,23 @@ const getTherapistLeaderboard = async (options = {}) => {
           _id: '$therapistId',
           averageRating: { $avg: '$rating' },
           totalSessions: { $sum: 1 },
-          recentRating: { $last: '$rating' }
-        }
+          recentRating: { $last: '$rating' },
+        },
       },
       {
         $match: {
-          totalSessions: { $gte: 5 } // Only include therapists with at least 5 sessions
-        }
+          totalSessions: { $gte: 5 }, // Only include therapists with at least 5 sessions
+        },
       },
       {
         $sort: {
           averageRating: -1,
-          totalSessions: -1
-        }
+          totalSessions: -1,
+        },
       },
       {
-        $limit: limit
-      }
+        $limit: limit,
+      },
     ]);
 
     return leaderboard.map((therapist, index) => ({
@@ -229,7 +230,7 @@ const getTherapistLeaderboard = async (options = {}) => {
       therapistId: therapist._id,
       averageRating: Math.round(therapist.averageRating * 10) / 10,
       totalSessions: therapist.totalSessions,
-      recentRating: therapist.recentRating
+      recentRating: therapist.recentRating,
     }));
   } catch (error) {
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to fetch leaderboard');

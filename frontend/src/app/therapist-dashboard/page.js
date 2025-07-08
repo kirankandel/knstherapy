@@ -285,6 +285,47 @@ export default function TherapistDashboard() {
     disconnect();
   }, [sendHeartbeat, disconnect]);
 
+  // Handle PDF report generation
+  const handleCreateReport = useCallback(async () => {
+    try {
+      console.log('🔄 Generating PDF report for therapist:', therapistId);
+      
+      // Make API call to backend
+      const response = await fetch(`/api/pdf/therapist-report/${therapistId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate report: ${response.status}`);
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `therapist_report_${therapistId}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ PDF report downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error generating PDF report:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    }
+  }, [therapistId]);
+
   // Request media permissions proactively
   const requestMediaPermissions = useCallback(async () => {
     try {
@@ -362,6 +403,12 @@ export default function TherapistDashboard() {
             }`}>
               {isConnected ? '🟢 Online' : '🔴 Offline'}
             </div>
+            <button
+              onClick={handleCreateReport}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              📄 Create Report
+            </button>
             <button
               onClick={handleGoOffline}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
