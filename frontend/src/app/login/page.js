@@ -14,7 +14,7 @@ export default function Login() {
 
   /* ---------------- redirect when logged in ---------------- */
   useEffect(() => {
-    if (isAuthenticated) router.push("/dashboard");
+    if (isAuthenticated) router.push("/therapist-dashboard");
   }, [isAuthenticated, router]);
 
   /* ---------------- clear error on unmount / change -------- */
