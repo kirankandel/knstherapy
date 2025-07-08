@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '../../hooks/useSocket';
-import { useWebRTC } from '../../hooks/useWebRTC';
+import { useMediaSoup } from '../../hooks/useMediaSoup';
 import RatingModal from '../../components/RatingModal';
+import Notification from '../../components/Notification';
 
 export default function AnonymousSession() {
   const {
@@ -15,10 +16,7 @@ export default function AnonymousSession() {
     requestSession,
     sendMessage,
     endSession,
-    sendWebRTCOffer,
-    sendWebRTCAnswer,
-    sendICECandidate,
-    endCall,
+    // Remove WebRTC specific socket methods
     getAvailableTherapists,
     addEventListener,
     removeEventListener,
@@ -40,6 +38,7 @@ export default function AnonymousSession() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [sessionToRate, setSessionToRate] = useState(null);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   // Request media permissions proactively
   const requestMediaPermissions = useCallback(async () => {
@@ -85,26 +84,14 @@ export default function AnonymousSession() {
     }
   }, []);
 
-  // WebRTC hook for audio/video calls
-  const webRTC = useWebRTC({
+  // MediaSoup hook for audio/video calls
+  const mediaSoup = useMediaSoup({
     sessionId,
     sessionType: activeSession?.sessionType || sessionType,
     userType: 'user',
-    onOffer: (offer) => {
-      if (sessionId) {
-        sendWebRTCOffer(sessionId, offer, 'therapist');
-      }
-    },
-    onAnswer: (answer) => {
-      if (sessionId) {
-        sendWebRTCAnswer(sessionId, answer, 'therapist');
-      }
-    },
-    onICECandidate: (candidate) => {
-      if (sessionId) {
-        sendICECandidate(sessionId, candidate, 'therapist');
-      }
-    },
+    onConnectionStateChange: (state) => {
+      console.log('📡 MediaSoup connection state changed:', state);
+    }
   });
 
   // Connect when component mounts
@@ -184,41 +171,39 @@ export default function AnonymousSession() {
 
     const handleSessionEnded = (data) => {
       console.log('🔚 Session ended:', data);
-      // End WebRTC call if active
-      if ((activeSession?.sessionType === 'audio' || activeSession?.sessionType === 'video') && webRTC) {
-        webRTC.endCall();
+      // End MediaSoup call if active
+      if ((activeSession?.sessionType === 'audio' || activeSession?.sessionType === 'video') && mediaSoup) {
+        mediaSoup.endCall();
       }
       setActiveSession(null);
       setMessages([]);
       setRequestStatus(null);
     };
 
-    // WebRTC event handlers
+    // Legacy WebRTC event handlers (for backward compatibility with existing socket events)
+    // These could be removed once the backend is fully updated to support MediaSoup
     const handleWebRTCOffer = (data) => {
-      console.log('📞 Received WebRTC offer:', data);
-      if (webRTC && data.targetId === 'user') {
-        webRTC.answerCall(data.offer);
-      }
+      console.log('📞 Received legacy WebRTC offer (ignoring):', data);
+      // MediaSoup doesn't use offers/answers in the same way as WebRTC
+      // This handler is kept for backward compatibility
     };
 
     const handleWebRTCAnswer = (data) => {
-      console.log('📞 Received WebRTC answer:', data);
-      if (webRTC && data.targetId === 'user') {
-        webRTC.handleAnswer(data.answer);
-      }
+      console.log('📞 Received legacy WebRTC answer (ignoring):', data);
+      // MediaSoup doesn't use offers/answers in the same way as WebRTC
+      // This handler is kept for backward compatibility
     };
 
     const handleICECandidate = (data) => {
       console.log('📞 Received ICE candidate:', data);
-      if (webRTC && data.targetId === 'user') {
-        webRTC.handleICECandidate(data.candidate);
-      }
+      // MediaSoup handles ICE candidates internally
+      // This handler is kept for backward compatibility
     };
 
     const handleCallEnded = (data) => {
       console.log('📞 Call ended:', data);
-      if (webRTC) {
-        webRTC.endCall();
+      if (mediaSoup) {
+        mediaSoup.endCall();
       }
     };
 
@@ -245,7 +230,7 @@ export default function AnonymousSession() {
       removeEventListener('ice-candidate');
       removeEventListener('call-ended');
     };
-  }, [isConnected, addEventListener, removeEventListener, sessionType, webRTC, activeSession?.sessionType, selectedTherapist?.therapistId]);
+  }, [isConnected, addEventListener, removeEventListener, sessionType, mediaSoup, activeSession?.sessionType, selectedTherapist?.therapistId]);
 
   const handleRequestSession = useCallback(() => {
     if (!selectedTherapist) {
@@ -278,9 +263,9 @@ export default function AnonymousSession() {
         sessionType: activeSession.sessionType
       });
 
-      // End WebRTC call if active
-      if ((activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC) {
-        webRTC.endCall();
+      // End MediaSoup call if active
+      if ((activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && mediaSoup) {
+        mediaSoup.endCall();
       }
       endSession(activeSession.sessionId);
 
@@ -289,7 +274,7 @@ export default function AnonymousSession() {
         setShowRatingModal(true);
       }, 1000);
     }
-  }, [activeSession, endSession, webRTC]);
+  }, [activeSession, endSession, mediaSoup]);
 
   const handleDisconnect = useCallback(() => {
     disconnect();
@@ -338,6 +323,106 @@ export default function AnonymousSession() {
     setShowRatingModal(false);
     setSessionToRate(null);
   }, []);
+
+  // Start MediaSoup call when audio/video session becomes active
+  useEffect(() => {
+    // Only proceed if we have a valid active session of audio/video type
+    if (!activeSession || (activeSession.sessionType !== 'audio' && activeSession.sessionType !== 'video')) {
+      return;
+    }
+
+    // Only proceed if we have a valid MediaSoup instance
+    if (!mediaSoup) {
+      return;
+    }
+
+    // Don't start if call is already active or ending
+    if (mediaSoup.isCallActive || mediaSoup.isEnding) {
+      console.log('⚠️ MediaSoup call not started: already active or ending');
+      return;
+    }
+
+    console.log('🎥 Starting MediaSoup call for', activeSession.sessionType, 'session');
+    
+    // Small delay to ensure MediaSoup hook has updated with new session type
+    const timer = setTimeout(async () => {
+      try {
+        // Check again to prevent race conditions
+        if (!mediaSoup || mediaSoup.isCallActive || mediaSoup.isEnding) {
+          console.log('⚠️ Call already active or ending, skipping');
+          return;
+        }
+
+        // First check if MediaSoup backend is available
+        try {
+          const response = await fetch('http://localhost:3001/v1/mediasoup/router-capabilities');
+          if (!response.ok) {
+            throw new Error(`MediaSoup backend not available: ${response.status} ${response.statusText}`);
+          }
+        } catch (backendError) {
+          console.error('⚠️ MediaSoup backend check failed:', backendError);
+          
+          // Show error notification
+          setNotification({
+            type: 'error',
+            message: `Media server unavailable. Your session will continue in text chat mode.`,
+            duration: 10000
+          });
+          
+          // Add a system message to inform the user
+          setMessages(prev => [...prev, {
+            id: `system-${Date.now()}`,
+            content: `Unable to start ${activeSession.sessionType} call due to server unavailability. Your session will continue in text chat mode.`,
+            senderType: 'system',
+            timestamp: new Date()
+          }]);
+          
+          return; // Don't try to start the call if backend is not available
+        }
+        
+        console.log('Calling mediaSoup.startCall() for', activeSession.sessionType, 'session');
+        await mediaSoup.startCall();
+        console.log('✅ MediaSoup call started successfully');
+        
+        // Show success notification
+        setNotification({
+          type: 'success',
+          message: `${activeSession.sessionType} call connected successfully.`,
+          duration: 5000
+        });
+      } catch (error) {
+        console.error('❌ Failed to start MediaSoup call:', error);
+        
+        // Show error notification
+        setNotification({
+          type: 'error',
+          message: `Failed to start ${activeSession.sessionType} call. Continuing with text chat.`,
+          duration: 10000
+        });
+        
+        // Add a system message about the failure
+        setMessages(prev => [...prev, {
+          id: `system-${Date.now()}`,
+          content: `${activeSession.sessionType} call setup failed. Your session will continue in text chat mode.`,
+          senderType: 'system',
+          timestamp: new Date()
+        }]);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [activeSession, mediaSoup, setMessages]);
+
+  // Debug MediaSoup initialization
+  // useEffect(() => {
+  //   console.log('🔍 MediaSoup Debug:', {
+  //     mediaSoup: !!mediaSoup,
+  //     sessionId,
+  //     activeSessionType: activeSession?.sessionType,
+  //     sessionType,
+  //     mediaSoupProps: mediaSoup ? Object.keys(mediaSoup) : null
+  //   });
+  // }, [mediaSoup, sessionId, activeSession?.sessionType, sessionType]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
@@ -521,8 +606,8 @@ export default function AnonymousSession() {
                   </div>
                 )}
 
-                {/* Professional WebRTC Video/Audio UI - Google Meet Style */}
-                {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC && (
+                {/* Professional MediaSoup Video/Audio UI - Google Meet Style */}
+                {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && mediaSoup && (
                   <div className="fixed inset-0 bg-gray-900 flex flex-col z-50">
                     {/* Top Header Bar */}
                     <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
@@ -533,7 +618,7 @@ export default function AnonymousSession() {
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-gray-300 text-sm">
-                        <span>Connection: {webRTC.connectionState}</span>
+                        <span>Connection: {mediaSoup?.connectionState || 'connecting'}</span>
                         <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
                         <span>{new Date().toLocaleTimeString()}</span>
                       </div>
@@ -546,12 +631,12 @@ export default function AnonymousSession() {
                           {/* Remote Video (Main) */}
                           <div className="absolute inset-0 w-full h-full bg-gray-900">
                             <video
-                              ref={webRTC.remoteVideoRef}
+                              ref={mediaSoup?.remoteVideoRef}
                               autoPlay
                               playsInline
                               className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center" style={{display: webRTC.remoteVideoRef?.current?.srcObject ? 'none' : 'flex'}}>
+                            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center" style={{display: mediaSoup?.remoteVideoRef?.current?.srcObject ? 'none' : 'flex'}}>
                               <div className="text-center text-white">
                                 <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-bold">
                                   T
@@ -565,13 +650,13 @@ export default function AnonymousSession() {
                           {/* Local Video (Picture-in-Picture) */}
                           <div className="absolute top-4 right-4 w-64 h-36 md:w-80 md:h-48 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600 shadow-2xl">
                             <video
-                              ref={webRTC.localVideoRef}
+                              ref={mediaSoup?.localVideoRef}
                               autoPlay
                               muted
                               playsInline
                               className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-gray-800 flex items-center justify-center" style={{display: webRTC.isVideoEnabled ? 'none' : 'flex'}}>
+                            <div className="absolute inset-0 bg-gray-800 flex items-center justify-center" style={{display: mediaSoup?.isVideoEnabled ? 'none' : 'flex'}}>
                               <div className="text-center text-white">
                                 <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-bold">
                                   Y
@@ -589,14 +674,14 @@ export default function AnonymousSession() {
                             <div className="flex items-center justify-center space-x-3 md:space-x-4">
                               {/* Microphone Toggle */}
                               <button
-                                onClick={() => webRTC.toggleMute()}
+                                onClick={() => mediaSoup?.toggleMute()}
                                 className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white transition-all duration-200 ${
-                                  webRTC.isMuted 
+                                  mediaSoup?.isMuted 
                                     ? 'bg-red-600 hover:bg-red-700 shadow-lg' 
                                     : 'bg-gray-700 hover:bg-gray-600 shadow-md'
                                 }`}
                               >
-                                {webRTC.isMuted ? (
+                                {mediaSoup?.isMuted ? (
                                   <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
                                   </svg>
@@ -619,14 +704,14 @@ export default function AnonymousSession() {
 
                               {/* Video Toggle */}
                               <button
-                                onClick={() => webRTC.toggleVideo()}
+                                onClick={() => mediaSoup?.toggleVideo()}
                                 className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white transition-all duration-200 ${
-                                  !webRTC.isVideoEnabled 
+                                  !mediaSoup?.isVideoEnabled 
                                     ? 'bg-red-600 hover:bg-red-700 shadow-lg' 
                                     : 'bg-gray-700 hover:bg-gray-600 shadow-md'
                                 }`}
                               >
-                                {webRTC.isVideoEnabled ? (
+                                {mediaSoup?.isVideoEnabled ? (
                                   <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
                                   </svg>
@@ -640,10 +725,10 @@ export default function AnonymousSession() {
                             </div>
 
                             {/* Audio Autoplay Warning */}
-                            {webRTC.audioAutoplayBlocked && (
+                            {mediaSoup?.audioAutoplayBlocked && (
                               <div className="flex justify-center mt-4">
                                 <button
-                                  onClick={() => webRTC.enableAudioPlayback()}
+                                  onClick={() => mediaSoup?.enableAudioPlayback()}
                                   className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
                                 >
                                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -685,14 +770,14 @@ export default function AnonymousSession() {
                             {/* Audio Controls */}
                             <div className="flex items-center justify-center space-x-4 md:space-x-6">
                               <button
-                                onClick={() => webRTC.toggleMute()}
+                                onClick={() => mediaSoup?.toggleMute()}
                                 className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-white transition-all duration-200 ${
-                                  webRTC.isMuted 
+                                  mediaSoup?.isMuted 
                                     ? 'bg-red-600 hover:bg-red-700 shadow-lg' 
                                     : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm'
                                 }`}
                               >
-                                {webRTC.isMuted ? (
+                                {mediaSoup?.isMuted ? (
                                   <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
                                   </svg>
@@ -714,10 +799,10 @@ export default function AnonymousSession() {
                             </div>
 
                             {/* Audio Autoplay Warning */}
-                            {webRTC.audioAutoplayBlocked && (
+                            {mediaSoup?.audioAutoplayBlocked && (
                               <div className="mt-8">
                                 <button
-                                  onClick={() => webRTC.enableAudioPlayback()}
+                                  onClick={() => mediaSoup?.enableAudioPlayback()}
                                   className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center space-x-3 mx-auto transition-colors shadow-lg"
                                 >
                                   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -734,7 +819,7 @@ export default function AnonymousSession() {
 
                     {/* Hidden Audio Element */}
                     <audio
-                      ref={webRTC.remoteAudioRef}
+                      ref={mediaSoup?.remoteAudioRef}
                       autoPlay
                       playsInline
                       style={{ display: 'none' }}
@@ -780,6 +865,12 @@ export default function AnonymousSession() {
           onSubmit={handleRatingSubmit}
           sessionData={sessionToRate}
           isSubmitting={isSubmittingRating}
+        />
+
+        {/* Notification Component */}
+        <Notification 
+          notification={notification} 
+          onClose={() => setNotification(null)} 
         />
       </div>
     </div>

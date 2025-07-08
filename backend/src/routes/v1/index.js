@@ -8,6 +8,7 @@ const communityRoute = require('./community.route');
 const ratingRoute = require('./rating.route');
 const analyticsRoute = require('./analytics.route');
 const pdfRoute = require('./pdf.route');
+const mediasoupRoute = require('./mediasoup.route');
 const config = require('../../config/config');
 
 const router = express.Router();
@@ -44,6 +45,10 @@ const defaultRoutes = [
   {
     path: '/pdf',
     route: pdfRoute,
+  },
+  {
+    path: '/mediasoup',
+    route: mediasoupRoute,
   },
 ];
 

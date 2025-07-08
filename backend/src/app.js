@@ -14,6 +14,7 @@ const requestLogger = require('./middlewares/requestLogger');
 const routes = require('./routes/v1');
 const { errorConverter, errorHandler } = require('./middlewares/error');
 const ApiError = require('./utils/ApiError');
+const mediaSoupService = require('./services/mediasoup.service');
 
 const app = express();
 
@@ -77,5 +78,33 @@ app.use(errorConverter);
 
 // handle error
 app.use(errorHandler);
+
+// Initialize MediaSoup service
+mediaSoupService.initialize().then((success) => {
+  if (success) {
+    console.log('✅ MediaSoup service initialized successfully');
+  } else {
+    console.error('❌ Failed to initialize MediaSoup service');
+  }
+}).catch((error) => {
+  console.error('❌ MediaSoup initialization error:', error);
+});
+
+// Cleanup MediaSoup on process exit
+process.on('exit', () => {
+  mediaSoupService.cleanup();
+});
+
+process.on('SIGINT', () => {
+  console.log('🔚 Received SIGINT, cleaning up MediaSoup...');
+  mediaSoupService.cleanup();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('🔚 Received SIGTERM, cleaning up MediaSoup...');
+  mediaSoupService.cleanup();
+  process.exit(0);
+});
 
 module.exports = app;
