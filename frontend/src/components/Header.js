@@ -9,6 +9,9 @@ export default function Header() {
   const { isAuthenticated, user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Get navigation links based on user type
+  const navLinks = getNavLinks(user);
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -61,18 +64,6 @@ export default function Header() {
                     ? `Dr. ${user.name}`
                     : user?.username || user?.name}
                 </span>
-                {user?.userType === "therapist" && (
-                  <Link
-                    href="/therapist-dashboard"
-                    className="px-4 py-2 rounded-md text-sm font-medium shadow-sm transition"
-                    style={{
-                      backgroundColor: "#D4E1F2",
-                      color: "#6172A3",
-                    }}
-                  >
-                    Dashboard
-                  </Link>
-                )}
                 <button
                   onClick={handleLogout}
                   className="px-4 py-2 rounded-md text-sm font-medium shadow-sm transition hover:opacity-90"
@@ -96,16 +87,18 @@ export default function Header() {
                 >
                   Sign In
                 </Link>
-                <Link
-                  href="/anonymous-session"
-                  className="px-4 py-2 rounded-md text-sm font-medium shadow-md hover:shadow-lg transition"
-                  style={{
-                    backgroundColor: "#6172A3",
-                    color: "#ffffff",
-                  }}
-                >
-                  Get Help Now
-                </Link>
+                {(!user || user?.userType !== "therapist") && (
+                  <Link
+                    href="/anonymous-session"
+                    className="px-4 py-2 rounded-md text-sm font-medium shadow-md hover:shadow-lg transition"
+                    style={{
+                      backgroundColor: "#6172A3",
+                      color: "#ffffff",
+                    }}
+                  >
+                    Get Help Now
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -150,15 +143,6 @@ export default function Header() {
                       : user?.username || user?.name}
                   </strong>
                 </div>
-                {user?.userType === "therapist" && (
-                  <Link
-                    href="/therapist-dashboard"
-                    className="block px-4 py-2 rounded-md text-sm font-medium shadow-sm bg-[#D4E1F2] text-[#6172A3]"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                )}
                 <button
                   onClick={() => {
                     setMenuOpen(false);
@@ -178,13 +162,15 @@ export default function Header() {
                 >
                   Sign In
                 </Link>
-                <Link
-                  href="/anonymous-session"
-                  className="block px-4 py-2 rounded-md text-sm font-medium bg-[#6172A3] text-white"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Get Help Now
-                </Link>
+                {(!user || user?.userType !== "therapist") && (
+                  <Link
+                    href="/anonymous-session"
+                    className="block px-4 py-2 rounded-md text-sm font-medium bg-[#6172A3] text-white"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Get Help Now
+                  </Link>
+                )}
               </>
             )}
           </div>
@@ -194,10 +180,26 @@ export default function Header() {
   );
 }
 
-const navLinks = [
-  { href: "/about", label: "About" },
-  { href: "/anonymous-session", label: "Anonymous Sessions" },
-  { href: "/chatbot", label: "AI Support" },
-  { href: "/community", label: "Community" },
-  { href: "/crisis-resources", label: "Crisis Resources", alert: true },
-];
+// Navigation links based on user type
+const getNavLinks = (user) => {
+  const baseLinks = [
+    { href: "/about", label: "About" },
+    { href: "/community", label: "Community" },
+    { href: "/crisis-resources", label: "Crisis Resources", alert: true },
+  ];
+
+  // For therapists, add Dashboard and remove AI Support & Anonymous Sessions
+  if (user?.userType === "therapist") {
+    return [
+      { href: "/therapist-dashboard", label: "Dashboard" },
+      ...baseLinks,
+    ];
+  }
+
+  // For regular users and non-authenticated users
+  return [
+    ...baseLinks,
+    { href: "/anonymous-session", label: "Anonymous Sessions" },
+    { href: "/chatbot", label: "AI Support" },
+  ];
+};

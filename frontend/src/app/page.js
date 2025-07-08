@@ -1,9 +1,23 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Head from "next/head";
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
-import Section from "@/components/ui/Section";
+import { useAuth } from "@/contexts/AuthContext";
+import Button from "@/components/ui/Button.jsx";
+import Card from "@/components/ui/Card.jsx";
+import Section from "@/components/ui/Section.jsx";
 
 export default function Home() {
+  const { isAuthenticated, user } = useAuth();
+  const router = useRouter();
+
+  // Redirect therapists to dashboard
+  useEffect(() => {
+    if (isAuthenticated && user?.userType === "therapist") {
+      router.push("/therapist-dashboard");
+    }
+  }, [isAuthenticated, user, router]);
   return (
     <>
       <Head>
