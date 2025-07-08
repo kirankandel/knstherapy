@@ -70,7 +70,7 @@ export default function TherapistSignup() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/therapist/dashboard');
+      router.push('/therapist-dashboard');
     }
   }, [isAuthenticated, router]);
 

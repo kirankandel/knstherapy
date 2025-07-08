@@ -24,7 +24,7 @@ export default function CommunitySignup() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/community');
+      router.push('/therapist-dashboard');
     }
   }, [isAuthenticated, router]);
 
