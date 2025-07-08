@@ -521,94 +521,224 @@ export default function AnonymousSession() {
                   </div>
                 )}
 
-                {/* WebRTC Video/Audio UI */}
+                {/* Professional WebRTC Video/Audio UI - Google Meet Style */}
                 {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC && (
-                  <div className="space-y-4">
-                    {/* Video Elements */}
-                    {activeSession.sessionType === 'video' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                          <video
-                            ref={webRTC.localVideoRef}
-                            autoPlay
-                            muted
-                            playsInline
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                            You
+                  <div className="fixed inset-0 bg-gray-900 flex flex-col z-50">
+                    {/* Top Header Bar */}
+                    <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-white text-sm font-medium">
+                          {activeSession.sessionType === 'video' ? 'Video Call' : 'Voice Call'} • Secure Session
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-300 text-sm">
+                        <span>Connection: {webRTC.connectionState}</span>
+                        <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
+                        <span>{new Date().toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Main Video Area */}
+                    <div className="flex-1 min-h-0 relative overflow-hidden">
+                      {activeSession.sessionType === 'video' ? (
+                        <div className="w-full h-full relative">
+                          {/* Remote Video (Main) */}
+                          <div className="absolute inset-0 w-full h-full bg-gray-900">
+                            <video
+                              ref={webRTC.remoteVideoRef}
+                              autoPlay
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center" style={{display: webRTC.remoteVideoRef?.current?.srcObject ? 'none' : 'flex'}}>
+                              <div className="text-center text-white">
+                                <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-bold">
+                                  T
+                                </div>
+                                <p className="text-lg font-medium">Therapist</p>
+                                <p className="text-sm text-gray-400">Connecting...</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Local Video (Picture-in-Picture) */}
+                          <div className="absolute top-4 right-4 w-64 h-36 md:w-80 md:h-48 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600 shadow-2xl">
+                            <video
+                              ref={webRTC.localVideoRef}
+                              autoPlay
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gray-800 flex items-center justify-center" style={{display: webRTC.isVideoEnabled ? 'none' : 'flex'}}>
+                              <div className="text-center text-white">
+                                <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-bold">
+                                  Y
+                                </div>
+                                <p className="text-sm">You</p>
+                              </div>
+                            </div>
+                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs font-medium">
+                              You
+                            </div>
+                          </div>
+
+                          {/* Video Controls Overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/50 to-transparent p-4 md:p-6">
+                            <div className="flex items-center justify-center space-x-3 md:space-x-4">
+                              {/* Microphone Toggle */}
+                              <button
+                                onClick={() => webRTC.toggleMute()}
+                                className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white transition-all duration-200 ${
+                                  webRTC.isMuted 
+                                    ? 'bg-red-600 hover:bg-red-700 shadow-lg' 
+                                    : 'bg-gray-700 hover:bg-gray-600 shadow-md'
+                                }`}
+                              >
+                                {webRTC.isMuted ? (
+                                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </button>
+
+                              {/* End Call */}
+                              <button
+                                onClick={handleEndSession}
+                                className="w-14 h-14 md:w-16 md:h-16 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center text-white transition-all duration-200 shadow-lg"
+                              >
+                                <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                </svg>
+                              </button>
+
+                              {/* Video Toggle */}
+                              <button
+                                onClick={() => webRTC.toggleVideo()}
+                                className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white transition-all duration-200 ${
+                                  !webRTC.isVideoEnabled 
+                                    ? 'bg-red-600 hover:bg-red-700 shadow-lg' 
+                                    : 'bg-gray-700 hover:bg-gray-600 shadow-md'
+                                }`}
+                              >
+                                {webRTC.isVideoEnabled ? (
+                                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Audio Autoplay Warning */}
+                            {webRTC.audioAutoplayBlocked && (
+                              <div className="flex justify-center mt-4">
+                                <button
+                                  onClick={() => webRTC.enableAudioPlayback()}
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                                >
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM15.657 6.343a1 1 0 011.414 0 8.971 8.971 0 010 12.728 1 1 0 11-1.414-1.414 6.971 6.971 0 000-9.9 1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0 4.978 4.978 0 010 7.071 1 1 0 11-1.415-1.414 2.978 2.978 0 000-4.243 1 1 0 010-1.414z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>Enable Audio</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                          <video
-                            ref={webRTC.remoteVideoRef}
-                            autoPlay
-                            playsInline
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                            Therapist
+                      ) : (
+                        // Audio Call UI
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-8">
+                          <div className="text-center">
+                            {/* Animated Audio Wave */}
+                            <div className="flex justify-center space-x-1 mb-8">
+                              {[...Array(5)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className="w-2 bg-white rounded-full animate-pulse"
+                                  style={{
+                                    height: `${Math.random() * 40 + 20}px`,
+                                    animationDelay: `${i * 0.1}s`,
+                                    animationDuration: '1s'
+                                  }}
+                                ></div>
+                              ))}
+                            </div>
+                            
+                            {/* Therapist Avatar */}
+                            <div className="w-24 h-24 md:w-32 md:h-32 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-2xl">
+                              <span className="text-2xl md:text-4xl font-bold text-white">T</span>
+                            </div>
+                            
+                            <h3 className="text-xl md:text-2xl font-semibold text-white mb-2">Voice call with Therapist</h3>
+                            <p className="text-blue-200 mb-6 md:mb-8 text-sm md:text-base">Secure end-to-end encrypted session</p>
+                            
+                            {/* Audio Controls */}
+                            <div className="flex items-center justify-center space-x-4 md:space-x-6">
+                              <button
+                                onClick={() => webRTC.toggleMute()}
+                                className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-white transition-all duration-200 ${
+                                  webRTC.isMuted 
+                                    ? 'bg-red-600 hover:bg-red-700 shadow-lg' 
+                                    : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm'
+                                }`}
+                              >
+                                {webRTC.isMuted ? (
+                                  <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={handleEndSession}
+                                className="w-18 h-18 md:w-20 md:h-20 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center text-white transition-all duration-200 shadow-2xl"
+                              >
+                                <svg className="w-8 h-8 md:w-10 md:h-10" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {/* Audio Autoplay Warning */}
+                            {webRTC.audioAutoplayBlocked && (
+                              <div className="mt-8">
+                                <button
+                                  onClick={() => webRTC.enableAudioPlayback()}
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center space-x-3 mx-auto transition-colors shadow-lg"
+                                >
+                                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM15.657 6.343a1 1 0 011.414 0 8.971 8.971 0 010 12.728 1 1 0 11-1.414-1.414 6.971 6.971 0 000-9.9 1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0 4.978 4.978 0 010 7.071 1 1 0 11-1.415-1.414 2.978 2.978 0 000-4.243 1 1 0 010-1.414z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>Enable Audio Playback</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Audio Elements */}
-                    {activeSession.sessionType === 'audio' && (
-                      <div className="flex justify-center">
-                        <div className="bg-gray-900 rounded-lg p-8 text-center">
-                          <div className="text-4xl mb-4">🎤</div>
-                          <p className="text-white">Voice Call Active</p>
-                          <p className="text-gray-300 text-sm">Clear audio and video</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hidden audio element for remote audio playback */}
-                    {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && (
-                      <audio
-                        ref={webRTC.remoteAudioRef}
-                        autoPlay
-                        playsInline
-                        style={{ display: 'none' }}
-                      />
-                    )}
-
-                    {/* Call Controls */}
-                    <div className="flex justify-center space-x-4">
-                      {/* Audio autoplay blocked warning */}
-                      {webRTC.audioAutoplayBlocked && (
-                        <button
-                          onClick={() => webRTC.enableAudioPlayback()}
-                          className="px-4 py-2 rounded-full bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
-                        >
-                          🔊 Enable Audio
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => webRTC.toggleMute()}
-                        className={`px-4 py-2 rounded-full ${webRTC.isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
-                          } text-white transition-colors`}
-                      >
-                        {webRTC.isMuted ? '🔇' : '🎤'}
-                      </button>
-
-                      {activeSession.sessionType === 'video' && (
-                        <button
-                          onClick={() => webRTC.toggleVideo()}
-                          className={`px-4 py-2 rounded-full ${!webRTC.isVideoEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
-                            } text-white transition-colors`}
-                        >
-                          {webRTC.isVideoEnabled ? '📹' : '🚫📹'}
-                        </button>
                       )}
                     </div>
 
-                    {/* Connection Status */}
-                    <div className="text-center text-sm text-gray-600">
-                      Connection: {webRTC.connectionState}
-                    </div>
+                    {/* Hidden Audio Element */}
+                    <audio
+                      ref={webRTC.remoteAudioRef}
+                      autoPlay
+                      playsInline
+                      style={{ display: 'none' }}
+                    />
                   </div>
                 )}
               </div>
