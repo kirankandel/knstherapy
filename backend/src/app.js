@@ -38,9 +38,19 @@ app.use(mongoSanitize());
 // gzip compression
 app.use(compression());
 
-// enable cors
-app.use(cors());
-app.options('*', cors());
+// enable cors - allow connections from any origin in development
+const corsOptions = {
+  origin:
+    config.env === 'development'
+      ? true
+      : ['http://192.168.1.92:3000', 'http://127.0.0.1:3000', config.frontendUrl || 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // request logging middleware
 app.use(requestLogger);

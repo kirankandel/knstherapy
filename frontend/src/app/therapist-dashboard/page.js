@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useWebRTC } from '../../hooks/useWebRTC';
+import TherapistRatings from '../../components/TherapistRatings';
 
 export default function TherapistDashboard() {
   const { user } = useAuth();
@@ -626,6 +627,11 @@ export default function TherapistDashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Therapist Ratings Section */}
+        <div className="mt-8">
+          <TherapistRatings therapistId={user?.id || 'demo_therapist_123'} />
         </div>
       </div>
     </div>

@@ -6,7 +6,11 @@ let io;
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      origin: process.env.NODE_ENV === 'development' ? true : [
+        process.env.FRONTEND_URL || 'http://localhost:3000',
+        'http://192.168.1.92:3000',
+        'http://127.0.0.1:3000',
+      ],
       methods: ['GET', 'POST'],
       credentials: false,
     },
@@ -225,6 +229,7 @@ const initializeSocket = (server) => {
         io.to(request.sessionId).emit('session-started', {
           sessionId: request.sessionId,
           sessionType: session.sessionType,
+          therapistId: socket.therapistId,
           message: `${session.sessionType.charAt(0).toUpperCase() + session.sessionType.slice(1)} session started! You are now connected with your therapist.`,
         });
       }

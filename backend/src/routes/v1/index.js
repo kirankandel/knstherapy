@@ -5,6 +5,7 @@ const docsRoute = require('./docs.route');
 const chatRoute = require('./chat.route');
 const therapistRoute = require('./therapist.route');
 const communityRoute = require('./community.route');
+const ratingRoute = require('./rating.route');
 const config = require('../../config/config');
 
 const router = express.Router();
@@ -29,6 +30,10 @@ const defaultRoutes = [
   {
     path: '/community',
     route: communityRoute,
+  },
+  {
+    path: '/ratings',
+    route: ratingRoute,
   },
 ];
 
