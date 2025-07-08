@@ -152,7 +152,17 @@ export default function TherapistDashboard() {
 
     const handleSessionRequest = (data) => {
       console.log('🔔 New session request:', data);
-      setPendingRequests(prev => [...prev, data]);
+      // Ensure the request has proper structure
+      const request = {
+        requestId: data.requestId,
+        sessionId: data.sessionId,
+        sessionType: data.sessionType,
+        message: data.message,
+        timestamp: data.timestamp || new Date().toISOString(),
+        // Add id as fallback for compatibility
+        id: data.requestId
+      };
+      setPendingRequests(prev => [...prev, request]);
     };
 
     const handleSessionStarted = (data) => {
@@ -168,6 +178,9 @@ export default function TherapistDashboard() {
         senderType: 'system',
         timestamp: new Date()
       }]);
+
+      // Automatically switch to session view
+      setCurrentView('session');
 
       // WebRTC call will be initiated by useEffect when activeSession changes
     };
@@ -238,11 +251,13 @@ export default function TherapistDashboard() {
   }, [isConnected, addEventListener, removeEventListener, activeSession?.sessionType, webRTC]);
 
   const handleAcceptRequest = useCallback((request) => {
+    console.log('✅ Accepting request:', request);
     acceptRequest(request.requestId);
     setPendingRequests(prev => prev.filter(r => r.requestId !== request.requestId));
   }, [acceptRequest]);
 
   const handleDeclineRequest = useCallback((request) => {
+    console.log('❌ Declining request:', request);
     declineRequest(request.requestId, 'I am not available at this time.');
     setPendingRequests(prev => prev.filter(r => r.requestId !== request.requestId));
   }, [declineRequest]);
@@ -433,6 +448,22 @@ export default function TherapistDashboard() {
                       <span>Microphone:</span>
                       <span>{mediaPermissions.microphone ? '✅ Ready' : '❌ Not ready'}</span>
                     </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Pending Count:</span>
+                      <span>{pendingRequests.length}</span>
+                    </div>
+                    {pendingRequests.length > 0 && (
+                      <div className="text-xs">
+                        <strong>Request IDs:</strong>
+                        <ul className="mt-1">
+                          {pendingRequests.map((req, idx) => (
+                            <li key={idx} className="font-mono">
+                              {req.requestId || req.id || 'No ID'}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                   
                   {!mediaPermissions.requested && (
@@ -454,7 +485,7 @@ export default function TherapistDashboard() {
                   {pendingRequests.length > 0 ? (
                     <div className="space-y-3">
                       {pendingRequests.map((request) => (
-                        <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                        <div key={request.requestId || request.id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="flex items-center space-x-2">
@@ -469,18 +500,23 @@ export default function TherapistDashboard() {
                                 </span>
                               </div>
                               <p className="text-sm text-gray-600 mt-1">
-                                Request ID: {request.id}
+                                Request ID: {request.requestId || request.id}
                               </p>
+                              {request.message && (
+                                <p className="text-sm text-gray-700 mt-1">
+                                  Message: {request.message}
+                                </p>
+                              )}
                             </div>
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => acceptRequest(request.id)}
+                                onClick={() => handleAcceptRequest(request)}
                                 className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
                               >
                                 Accept
                               </button>
                               <button
-                                onClick={() => declineRequest(request.id)}
+                                onClick={() => handleDeclineRequest(request)}
                                 className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
                               >
                                 Decline
@@ -591,7 +627,294 @@ export default function TherapistDashboard() {
               <div className="text-center py-12">
                 <div className="text-4xl mb-4">📊</div>
                 <p className="text-gray-600">No analytics data available</p>
-              </div>            )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Session View */}
+        {currentView === 'session' && activeSession && (
+          <div className="space-y-6">
+            {/* Session Header */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    {activeSession.sessionType === 'text' && '💬 Text Session'}
+                    {activeSession.sessionType === 'audio' && '🎤 Voice Session'}
+                    {activeSession.sessionType === 'video' && '📹 Video Session'}
+                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-sm rounded-full">
+                      Active
+                    </span>
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Session ID: {activeSession.sessionId}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Started: {activeSession.startTime?.toLocaleTimeString()}
+                  </p>
+                </div>
+                <button
+                  onClick={handleEndSession}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  End Session
+                </button>
+              </div>
+            </div>
+
+            {/* Session Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Chat Area */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4">Messages</h4>
+                  
+                  {/* Messages */}
+                  <div className="h-64 overflow-y-auto border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50">
+                    {messages.length > 0 ? (
+                      messages.map((message) => (
+                        <div key={message.id || Date.now()} className="mb-3">
+                          <div className={`flex ${message.senderType === 'therapist' ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                message.senderType === 'therapist'
+                                  ? 'bg-blue-500 text-white'
+                                  : message.senderType === 'system'
+                                  ? 'bg-gray-300 text-gray-800'
+                                  : 'bg-gray-200 text-gray-800'
+                              }`}
+                            >
+                              {message.senderType === 'system' && (
+                                <div className="text-xs font-semibold mb-1">System</div>
+                              )}
+                              {message.senderType === 'user' && (
+                                <div className="text-xs font-semibold mb-1">User</div>
+                              )}
+                              {message.senderType === 'therapist' && (
+                                <div className="text-xs font-semibold mb-1">You</div>
+                              )}
+                              <div>{message.content}</div>
+                              <div className="text-xs opacity-75 mt-1">
+                                {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-gray-500 py-8">
+                        <div className="text-2xl mb-2">💬</div>
+                        <p>No messages yet</p>
+                        <p className="text-xs">Messages will appear here when you or the user sends them</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Message Input */}
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                      placeholder="Type your message..."
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Video/Audio Controls */}
+              <div className="space-y-6">
+                {/* WebRTC Controls for Audio/Video Sessions */}
+                {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && (
+                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <h4 className="text-md font-semibold text-gray-900 mb-4">
+                      {activeSession.sessionType === 'audio' ? '🎤 Voice Call' : '📹 Video Call'}
+                    </h4>
+                    
+                    {/* WebRTC Status */}
+                    <div className="mb-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Call Status:</span>
+                        <span className={`font-medium ${
+                          webRTC?.isCallActive 
+                            ? 'text-green-600' 
+                            : webRTC?.isConnecting 
+                            ? 'text-yellow-600' 
+                            : 'text-red-600'
+                        }`}>
+                          {webRTC?.isCallActive ? '✅ Connected' : 
+                           webRTC?.isConnecting ? '🔄 Connecting...' : '❌ Not connected'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Local Stream:</span>
+                        <span>{webRTC?.localStream ? '✅ Active' : '❌ None'}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Remote Stream:</span>
+                        <span>{webRTC?.remoteStream ? '✅ Active' : '❌ None'}</span>
+                      </div>
+                    </div>
+
+                    {/* Video Elements */}
+                    {activeSession.sessionType === 'video' && (
+                      <div className="space-y-4">
+                        {/* Local Video */}
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">Your Video:</h5>
+                          <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ height: '120px' }}>
+                            <video
+                              ref={webRTC?.localVideoRef}
+                              autoPlay
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                            {!webRTC?.localStream && (
+                              <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
+                                No video
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Remote Video */}
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">User&apos;s Video:</h5>
+                          <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ height: '120px' }}>
+                            <video
+                              ref={webRTC?.remoteVideoRef}
+                              autoPlay
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                            {!webRTC?.remoteStream && (
+                              <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
+                                Waiting for user...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Audio Elements (Hidden) */}
+                    {activeSession.sessionType === 'audio' && (
+                      <div className="space-y-2">
+                        <audio ref={webRTC?.localAudioRef} autoPlay muted />
+                        <audio ref={webRTC?.remoteAudioRef} autoPlay />
+                        <div className="text-center py-8">
+                          <div className="text-4xl mb-2">🎤</div>
+                          <p className="text-sm text-gray-600">Voice call active</p>
+                          {webRTC?.remoteStream && (
+                            <p className="text-xs text-green-600">Connected to user</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Call Controls */}
+                    <div className="flex justify-center space-x-2 mt-4">
+                      {webRTC?.isMuted !== undefined && (
+                        <button
+                          onClick={webRTC.toggleMute}
+                          className={`px-3 py-2 rounded-md text-sm font-medium ${
+                            webRTC.isMuted
+                              ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                              : 'bg-green-100 text-green-800 hover:bg-green-200'
+                          }`}
+                        >
+                          {webRTC.isMuted ? '🔇 Unmute' : '🎤 Mute'}
+                        </button>
+                      )}
+                      
+                      {activeSession.sessionType === 'video' && webRTC?.isVideoOff !== undefined && (
+                        <button
+                          onClick={webRTC.toggleVideo}
+                          className={`px-3 py-2 rounded-md text-sm font-medium ${
+                            webRTC.isVideoOff
+                              ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                              : 'bg-green-100 text-green-800 hover:bg-green-200'
+                          }`}
+                        >
+                          {webRTC.isVideoOff ? '📹 Enable Video' : '🚫 Disable Video'}
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={() => {
+                          if (webRTC) {
+                            webRTC.endCall();
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+                      >
+                        📞 End Call
+                      </button>
+                    </div>
+
+                    {/* Debug Info */}
+                    <div className="mt-4 p-3 bg-gray-50 rounded text-xs">
+                      <div><strong>Debug:</strong></div>
+                      <div>Session Type: {activeSession.sessionType}</div>
+                      <div>WebRTC Available: {webRTC ? 'Yes' : 'No'}</div>
+                      <div>Call Active: {webRTC?.isCallActive ? 'Yes' : 'No'}</div>
+                      <div>Connecting: {webRTC?.isConnecting ? 'Yes' : 'No'}</div>
+                      <div>Local Stream: {webRTC?.localStream ? 'Yes' : 'No'}</div>
+                      <div>Remote Stream: {webRTC?.remoteStream ? 'Yes' : 'No'}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Session Info */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4">Session Info</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Type:</span>
+                      <span className="font-medium">{activeSession.sessionType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Duration:</span>
+                      <span className="font-medium">
+                        {activeSession.startTime ? 
+                          Math.floor((new Date() - activeSession.startTime) / 1000 / 60) + ' min' 
+                          : 'Unknown'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Messages:</span>
+                      <span className="font-medium">{messages.length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* No Active Session Message for Session View */}
+        {currentView === 'session' && !activeSession && (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-4">💬</div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Active Session</h3>
+            <p className="text-gray-600 mb-4">You don&apos;t have an active session right now.</p>
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Go to Dashboard
+            </button>
           </div>
         )}
       </div>
