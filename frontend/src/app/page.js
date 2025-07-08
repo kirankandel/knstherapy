@@ -29,16 +29,16 @@ export default function Home() {
           id="main"
           className="snap-y snap-mandatory h-screen overflow-y-scroll scroll-smooth"
           style={{
-            background: "linear-gradient(to bottom right, #6172A3, #C8DCD6, #F2E3D5)",
+            background: "linear-gradient(to bottom right, #93B5E1, #CFE8F3, #EAF6F9)",
           }}
         >
           {/* ---------- HERO ---------- */}
           <Section id="hero" as="header">
-            <div className="text-center text-white">
+            <div className="text-center text-black">
               <h1 className="mx-auto mb-6 max-w-4xl text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight">
                 Confidential Therapy that Respects Your Privacy
               </h1>
-              <p className="mx-auto mb-10 max-w-2xl text-lg text-white/90">
+              <p className="mx-auto mb-10 max-w-2xl text-lg text-black/90">
                 Connect with caring professionals <em>without</em> revealing
                 your identity—anonymous sessions, AI-guided tools, and a
                 judgment-free peer community. Because healing should feel&nbsp;safe.
@@ -47,24 +47,21 @@ export default function Home() {
                 <Button
                   href="#contact"
                   variant="primary"
-                  className="text-white"
-                  style={{ backgroundColor: "#C8DCD6" }}
+                  className="text-[#6172A3] bg-white border border-[#D4E1F2] hover:bg-[#f0f4fa] transition-colors"
                 >
                   Book a Free Consult
                 </Button>
                 <Button
                   href="/anonymous-session"
                   variant="secondary"
-                  className="text-[#6172A3]"
-                  style={{ backgroundColor: "#ffffff", border: "1px solid #D4E1F2" }}
+                  className="text-[#6172A3] bg-white border border-[#D4E1F2] hover:bg-[#f0f4fa] transition-colors"
                 >
                   Start Anonymous Session
                 </Button>
                 <Button
                   href="/chatbot"
                   variant="outline"
-                  className="border"
-                  style={{ borderColor: "#6172A3", color: "#6172A3" }}
+                  className="text-[#6172A3] bg-white border border-[#D4E1F2] hover:bg-[#f0f4fa] transition-colors"
                 >
                   Talk to AI Support
                 </Button>
