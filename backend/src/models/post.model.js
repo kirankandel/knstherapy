@@ -5,7 +5,7 @@ const postSchema = mongoose.Schema(
   {
     time: {
       type: Date,
-      default: Date.now,  
+      default: Date.now,
       required: true,
     },
     user: {
@@ -27,15 +27,25 @@ const postSchema = mongoose.Schema(
       required: true,
       trim: true,
     },
+    vote: {
+      type: Number,
+      default: 0,
+    },
+    comment: {
+      type: Number,
+      default: 0,
+    },
+    tags: [String], // ✅ Tags array added properly
   },
   {
-    timestamps: true,       
+    timestamps: true, // ✅ createdAt and updatedAt fields
   }
 );
 
 // Convert Mongoose documents to clean JSON
 postSchema.plugin(toJSON);
 postSchema.plugin(paginate);
+
 /**
  * @typedef Post
  */

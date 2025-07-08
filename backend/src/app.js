@@ -1,5 +1,6 @@
 const express = require('express');
 const helmet = require('helmet');
+const mongoose = require('mongoose');
 const xss = require('xss-clean');
 const mongoSanitize = require('express-mongo-sanitize');
 const compression = require('compression');
@@ -17,6 +18,16 @@ const ApiError = require('./utils/ApiError');
 
 
 const app = express();
+
+
+mongoose.connect(config.mongoose.url, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => {
+  console.log('Connected to MongoDB');
+}).catch((error) => {
+  console.error('Error connecting to MongoDB:', error);
+});
 
 if (config.env !== 'test') {
   app.use(morgan.successHandler);
@@ -56,11 +67,30 @@ if (config.env === 'production') {
 }
 
 // v1 api routes
-app.use('v1', routes);
+app.use('/v1', routes);
 
-app.use('/api/categories', require('../src/routes/v1/category.route'));
-app.use('/api/posts', require('./routes/v1/post.route'));
-app.use('/api/replies', require('./routes/v1/reply.route'));
+const Post = require('./models/post.model');
+
+app.get('/v1/api/posts/:id', async (req, res, next) => {
+  const postId = req.params.id;
+  
+  try {
+    const post = await Post.findById(postId);
+    
+    if (!post) {
+      return res.status(httpStatus.NOT_FOUND).json({ message: 'Post not found' });
+    }
+
+    res.status(httpStatus.OK).json(post);
+  } catch (error) {
+    next(new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Error retrieving post'));
+  }
+});
+
+// app.use('/api', postRoutes);
+app.use('/v1/categories', require('../src/routes/v1/category.route'));
+app.use('/v1/posts', require('./routes/v1/post.route'));
+app.use('/v1/replies', require('./routes/v1/reply.route'));
 // send back a 404 error for any unknown api request
 app.use((req, res, next) => {
   next(new ApiError(httpStatus.NOT_FOUND, 'Not found'));

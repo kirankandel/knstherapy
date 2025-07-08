@@ -4,7 +4,8 @@ const app = require('./app');
 const config = require('./config/config');
 const logger = require('./config/logger');
 const { initializeSocket } = require('./config/socket');
-
+// import express from 'express';
+// import userRoutes from './routes/user.js';
 
 
 
@@ -13,11 +14,11 @@ const httpServer = createServer(app);
 
 mongoose.connect(config.mongoose.url, config.mongoose.options).then(() => {
   logger.info('Connected to MongoDB');
-
+  
   // Initialize Socket.IO
   initializeSocket(httpServer);
   logger.info('Socket.IO initialized');
-
+  
   server = httpServer.listen(config.port, () => {
     logger.info(`Listening to port ${config.port}`);
   });

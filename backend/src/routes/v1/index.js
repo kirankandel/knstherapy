@@ -5,6 +5,8 @@ const docsRoute = require('./docs.route');
 const chatRoute = require('./chat.route');
 const therapistRoute = require('./therapist.route');
 const communityRoute = require('./community.route');
+const postRoute = require('./post.route');  
+const replyRoute = require('./reply.route');
 const config = require('../../config/config');
 
 const router = express.Router();
@@ -30,6 +32,14 @@ const defaultRoutes = [
     path: '/community',
     route: communityRoute,
   },
+  {
+    path: '/post',
+    route: postRoute,
+  },
+  {
+    path:'/replies',
+    route: replyRoute,
+  }
 ];
 
 const devRoutes = [
@@ -44,7 +54,7 @@ defaultRoutes.forEach((route) => {
   router.use(route.path, route.route);
 });
 
-/* istanbul ignore next */
+
 if (config.env === 'development') {
   devRoutes.forEach((route) => {
     router.use(route.path, route.route);
