@@ -389,36 +389,77 @@ export default function AnonymousSession() {
               </div>
 
             )}
+                  {!activeSession && (
+                    <div className="w-full max-w-xl bg-blue-50 border border-gray-200 rounded-xl shadow-sm p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">Therapists</h3>
+                      <button
+                      onClick={() => setShowTherapistList(!showTherapistList)}
+                      className="text-base text-indigo-600 hover:text-indigo-800"
+                      >
+                      {showTherapistList ? 'Hide' : 'Show'} ({availableTherapists.length})
+                      </button>
+                    </div>
 
-            {/* Therapist List */}
-            {!activeSession && (
-              <div className="w-full max-w-xl bg-blue-50 border border-gray-200 rounded-xl shadow-sm p-8">
-                <div className="flex justify-between items-center mb-30">
-                  <h3 className="text-xl font-semibold text-gray-900">Therapists</h3>
-                  <button
-                    onClick={() => setShowTherapistList(!showTherapistList)}
-                    className="text-base text-indigo-600 hover:text-indigo-800"
-                  >
-                    {showTherapistList ? 'Hide' : 'Show'} ({availableTherapists.length})
-                  </button>
-                </div>
+                    {showTherapistList && (
+                      <ul className="space-y-3 mt-4">
+                      {availableTherapists.map((therapist) => (
+                        <li 
+                        key={therapist.id} 
+                        className={`p-4 border rounded-lg bg-white shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md ${
+                          selectedTherapist?.id === therapist.id 
+                          ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                          : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedTherapist(therapist)}
+                        >
+                        <div className="font-bold text-gray-900 text-lg mb-2">{therapist.name}</div>
+                        {therapist.specialties && therapist.specialties.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                          {therapist.specialties.map((speciality, index) => (
+                            <span 
+                            key={index}
+                            className="inline-block px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-full"
+                            >
+                            {speciality}
+                            </span>
+                          ))}
+                          </div>
+                        )}
+                        {therapist.experience && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            {typeof therapist.experience === 'string' 
+                              ? therapist.experience 
+                              : `${therapist.experience.yearsOfPractice || 0} years experience`
+                            }
+                          </div>
+                        )}
+                        </li>
+                      ))}
+                      </ul>
+                    )}
 
-                {showTherapistList && (
-                  <ul className="space-y-3">
-                    {availableTherapists.map((therapist) => (
-                      <li key={therapist.id} className="p-4 border border-gray-200 rounded-md bg-white shadow-sm">
-                        <div className="font-medium text-gray-800">{therapist.name}</div>
-                        <div className="text-sm text-gray-500">{therapist.specialty}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                    {/* Request Session Button */}
+                    {selectedTherapist && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="text-sm font-medium text-green-800 mb-2">Selected Therapist:</div>
+                        <div className="font-bold text-green-900 text-lg mb-2">{selectedTherapist.name}</div>
+                      </div>
+                      <button
+                        onClick={handleRequestSession}
+                        disabled={requestStatus === 'sending'}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {requestStatus === 'sending' ? 'Requesting...' : `Request ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} Session`}
+                      </button>
+                      </div>
+                    )}
+                    </div>
+                  )}
+                  </div>
 
-            )}
-          </div>
-
-          {/* Right Column - Session Display */}
+                  {/* Right Column - Session Display */}
           <div className="lg:col-span-2">
             {activeSession ? (
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
