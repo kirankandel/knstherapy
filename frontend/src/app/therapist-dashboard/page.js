@@ -4,7 +4,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useWebRTC } from '../../hooks/useWebRTC';
-import TherapistRatings from '../../components/TherapistRatings';
+import { useAnalytics } from '../../hooks/useAnalytics';
+import {
+  RatingDistributionChart,
+  SessionTypeChart,
+  RatingsOverTimeChart,
+  DailyActivityChart,
+} from '../../components/Charts';
+import {
+  MetricCard,
+  RecentFeedbackCard,
+  StatsOverview,
+  SessionTypeBreakdown,
+  LoadingSpinner,
+  ErrorMessage,
+} from '../../components/DashboardComponents';
 
 export default function TherapistDashboard() {
   const { user } = useAuth();
@@ -37,6 +51,20 @@ export default function TherapistDashboard() {
     microphone: false,
     requested: false
   });
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'session', 'analytics'
+
+  // Demo therapist ID for analytics
+  const therapistId = user?.id || 'demo_therapist_123';
+
+  // Analytics hook
+  const { 
+    analytics, 
+    loading: analyticsLoading, 
+    error: analyticsError, 
+    dateRange, 
+    refreshAnalytics, 
+    changeDateRange 
+  } = useAnalytics(therapistId);
 
   // WebRTC hook for audio/video calls
   const webRTC = useWebRTC({
@@ -328,311 +356,244 @@ export default function TherapistDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Status & Requests */}
-          <div className="space-y-6">
-            {/* Debug Info */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Debug Info</h3>
-              <div className="space-y-2 text-sm">
-                <p><strong>Connected:</strong> {isConnected ? '✅' : '❌'}</p>
-                <p><strong>Session ID:</strong> {sessionId || 'None'}</p>
-                <p><strong>Therapist ID:</strong> {user?.id}</p>
-                <p><strong>Pending Requests:</strong> {pendingRequests.length}</p>
-                <p><strong>Active Session:</strong> {activeSession ? '✅' : '❌'}</p>
-                <p><strong>Session Type:</strong> {activeSession?.sessionType || 'None'}</p>
-                {webRTC && (
-                  <>
-                    <p><strong>WebRTC Active:</strong> {webRTC.isCallActive ? '✅' : '❌'}</p>
-                    <p><strong>Connection State:</strong> {webRTC.connectionState}</p>
-                  </>
-                )}
-                <p><strong>Camera Permission:</strong> {mediaPermissions.camera ? '✅' : '❌'}</p>
-                <p><strong>Microphone Permission:</strong> {mediaPermissions.microphone ? '✅' : '❌'}</p>
-              </div>
-              
-              {/* Media Permissions Button */}
-              {!mediaPermissions.requested && (
+        {/* Navigation Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setCurrentView('dashboard')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  currentView === 'dashboard'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentView('analytics')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  currentView === 'analytics'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📈 Analytics
+              </button>
+              {activeSession && (
                 <button
-                  onClick={requestMediaPermissions}
-                  className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-md"
+                  onClick={() => setCurrentView('session')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    currentView === 'session'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
-                  🎥 Enable Camera & Microphone
+                  💬 Active Session
                 </button>
               )}
-              
-              {mediaPermissions.requested && (!mediaPermissions.camera || !mediaPermissions.microphone) && (
-                <button
-                  onClick={requestMediaPermissions}
-                  className="mt-3 w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-3 rounded-md"
-                >
-                  🔄 Retry Permissions
-                </button>
-              )}
-            </div>
-
-            {/* Pending Requests */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Session Requests ({pendingRequests.length})
-              </h3>
-              {pendingRequests.length === 0 ? (
-                <p className="text-gray-500 text-sm">
-                  {isOnline ? 'Waiting for session requests...' : 'Go online to receive requests'}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {pendingRequests.map((request) => (
-                    <div key={request.requestId} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium text-gray-900">New Session Request</h4>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              request.sessionType === 'video' ? 'bg-purple-100 text-purple-800' :
-                              request.sessionType === 'audio' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {request.sessionType === 'video' && '📹 Video Call'}
-                              {request.sessionType === 'audio' && '🎤 Voice Call'}
-                              {request.sessionType === 'text' && '💬 Text Chat'}
-                              {!request.sessionType && '💬 Text Chat'}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          {new Date(request.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-gray-600 text-sm mb-3">{request.message}</p>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleAcceptRequest(request)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => handleDeclineRequest(request)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            </nav>
           </div>
+        </div>
 
-          {/* Right Column - Active Session */}
-          <div>
-            {activeSession ? (
+        {/* Dashboard View */}
+        {currentView === 'dashboard' && (
+          <div className="space-y-6">
+            {/* Quick Stats Overview */}
+            {analytics && <StatsOverview analytics={analytics} />}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Session Management */}
               <div className="space-y-6">
-                {/* Session Header */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {activeSession.sessionType === 'text' && '💬 Text Chat Session'}
-                        {activeSession.sessionType === 'audio' && '🎤 Voice Call Session'}
-                        {activeSession.sessionType === 'video' && '📹 Video Call Session'}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Started {activeSession.startTime.toLocaleTimeString()}
-                      </p>
+                {/* Connection Status Card */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Connection Status</h3>
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {isConnected ? '🟢 Online' : '🔴 Offline'}
                     </div>
-                    <button
-                      onClick={handleEndSession}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium"
-                    >
-                      End Session
-                    </button>
-                  </div>
-                </div>
-
-                {/* WebRTC Video/Audio UI */}
-                {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && webRTC && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <div className="space-y-4">
-                      {/* Video Elements */}
-                      {activeSession.sessionType === 'video' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                            <video
-                              ref={webRTC.localVideoRef}
-                              autoPlay
-                              muted
-                              playsInline
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                              You (Therapist)
-                            </div>
-                          </div>
-                          <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                            <video
-                              ref={webRTC.remoteVideoRef}
-                              autoPlay
-                              playsInline
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                              User (Anonymized)
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Audio Elements */}
-                      {activeSession.sessionType === 'audio' && (
-                        <div className="flex justify-center">
-                          <div className="bg-gray-900 rounded-lg p-8 text-center">
-                            <div className="text-4xl mb-4">🎤</div>
-                            <p className="text-white">Voice Call Active</p>
-                            <p className="text-gray-300 text-sm">Clear audio and video</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Hidden audio element for remote audio playback */}
-                      {(activeSession.sessionType === 'audio' || activeSession.sessionType === 'video') && (
-                        <audio
-                          ref={webRTC.remoteAudioRef}
-                          autoPlay
-                          playsInline
-                          style={{ display: 'none' }}
-                        />
-                      )}
-
-                      {/* Call Controls */}
-                      <div className="flex justify-center space-x-4">
-                        {/* Audio autoplay blocked warning */}
-                        {webRTC.audioAutoplayBlocked && (
-                          <button
-                            onClick={() => webRTC.enableAudioPlayback()}
-                            className="px-4 py-2 rounded-full bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
-                          >
-                            🔊 Enable Audio
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => webRTC.toggleMute()}
-                          className={`px-4 py-2 rounded-full ${
-                            webRTC.isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
-                          } text-white transition-colors`}
-                        >
-                          {webRTC.isMuted ? '🔇' : '🎤'}
-                        </button>
-                        
-                        {activeSession.sessionType === 'video' && (
-                          <button
-                            onClick={() => webRTC.toggleVideo()}
-                            className={`px-4 py-2 rounded-full ${
-                              !webRTC.isVideoEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'
-                            } text-white transition-colors`}
-                          >
-                            {!webRTC.isVideoEnabled ? '📹❌' : '📹'}
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => webRTC.endCall()}
-                          className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
-                        >
-                          📞❌
-                        </button>
-                      </div>
-
-                      {/* Connection Status */}
-                      <div className="text-center text-sm text-gray-500">
-                        Connection: {webRTC.connectionState || 'connecting...'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Chat Interface (always available) */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-semibold text-gray-900">
-                      {activeSession.sessionType === 'text' ? 'Chat' : 'Chat (supplementary)'}
-                    </h4>
                   </div>
                   
-                  {/* Messages */}
-                  <div className="h-96 border rounded-lg p-4 mb-4 overflow-y-auto bg-gray-50">
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`mb-3 ${
-                          message.senderType === 'therapist' ? 'text-right' : 'text-left'
-                        }`}
-                      >
-                        <div
-                          className={`inline-block max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
-                            message.senderType === 'therapist'
-                              ? 'bg-blue-600 text-white'
-                              : message.senderType === 'system'
-                              ? 'bg-gray-200 text-gray-800'
-                              : 'bg-white text-gray-900 border'
-                          }`}
-                        >
-                          {message.content}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>Therapist ID:</span>
+                      <span className="font-mono">{user?.id}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Session ID:</span>
+                      <span className="font-mono">{sessionId || 'None'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Camera:</span>
+                      <span>{mediaPermissions.camera ? '✅ Ready' : '❌ Not ready'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Microphone:</span>
+                      <span>{mediaPermissions.microphone ? '✅ Ready' : '❌ Not ready'}</span>
+                    </div>
                   </div>
-
-                  {/* Message Input */}
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Type your message..."
-                      className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                  
+                  {!mediaPermissions.requested && (
                     <button
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
-                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm"
+                      onClick={requestMediaPermissions}
+                      className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-md"
                     >
-                      Send
+                      🎥 Enable Camera & Microphone
                     </button>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow p-8 text-center">
-                <div className="text-gray-400">
-                  <div className="text-6xl mb-4">👩‍⚕️</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Session</h3>
-                  <p className="text-gray-500 mb-4">
-                    {isOnline 
-                      ? 'When a user requests a session, it will appear here.'
-                      : 'Go online to start receiving session requests.'
-                    }
-                  </p>
-                  <div className="text-sm text-gray-400">
-                    Supports: Text Chat • Voice Calls • Video Sessions
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Therapist Ratings Section */}
-        <div className="mt-8">
-          <TherapistRatings therapistId={user?.id || 'demo_therapist_123'} />
-        </div>
+                {/* Pending Requests */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Pending Requests ({pendingRequests.length})
+                  </h3>
+                  
+                  {pendingRequests.length > 0 ? (
+                    <div className="space-y-3">
+                      {pendingRequests.map((request) => (
+                        <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  request.sessionType === 'text' ? 'bg-blue-100 text-blue-800' :
+                                  request.sessionType === 'audio' ? 'bg-green-100 text-green-800' :
+                                  'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {request.sessionType === 'text' && '💬 Text Chat'}
+                                  {request.sessionType === 'audio' && '🎤 Voice Call'}
+                                  {request.sessionType === 'video' && '📹 Video Call'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Request ID: {request.id}
+                              </p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => acceptRequest(request.id)}
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => declineRequest(request.id)}
+                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="text-4xl mb-2">⏳</div>
+                      <p>No pending requests</p>
+                      <p className="text-xs">You&apos;ll see new session requests here</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Analytics Preview */}
+              <div className="space-y-6">
+                {analytics ? (
+                  <>
+                    <SessionTypeBreakdown sessionTypeStats={analytics.sessionTypeStats} />
+                    <RecentFeedbackCard feedback={analytics.recentFeedback} />
+                  </>
+                ) : (
+                  <LoadingSpinner />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics View */}
+        {currentView === 'analytics' && (
+          <div className="space-y-6">
+            {/* Date Range Selector */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Analytics Period</h3>
+                <div className="flex space-x-2">
+                  {['7d', '30d', '3m', '6m', '1y'].map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => changeDateRange(period)}
+                      className={`px-3 py-1 rounded text-sm font-medium ${
+                        dateRange === period
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {period === '7d' && 'Last 7 days'}
+                      {period === '30d' && 'Last 30 days'}
+                      {period === '3m' && 'Last 3 months'}
+                      {period === '6m' && 'Last 6 months'}
+                      {period === '1y' && 'Last year'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={refreshAnalytics}
+                    className="px-3 py-1 rounded text-sm font-medium bg-green-100 text-green-700 hover:bg-green-200"
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {analyticsLoading ? (
+              <LoadingSpinner />
+            ) : analyticsError ? (
+              <ErrorMessage message={analyticsError} onRetry={refreshAnalytics} />
+            ) : analytics ? (
+              <>
+                {/* Performance Metrics */}
+                <StatsOverview analytics={analytics} />
+
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Rating Distribution */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <RatingDistributionChart data={analytics.ratingDistribution} />
+                  </div>
+
+                  {/* Session Types */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <SessionTypeChart data={analytics.sessionTypeStats} />
+                  </div>
+
+                  {/* Ratings Over Time */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-6 lg:col-span-2">
+                    <RatingsOverTimeChart data={analytics.ratingsOverTime} />
+                  </div>
+
+                  {/* Daily Activity */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <DailyActivityChart data={analytics.dailyActivity} />
+                  </div>
+
+                  {/* Recent Feedback */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <RecentFeedbackCard feedback={analytics.recentFeedback} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-4">📊</div>
+                <p className="text-gray-600">No analytics data available</p>
+              </div>            )}
+          </div>
+        )}
       </div>
     </div>
   );

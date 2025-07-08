@@ -6,6 +6,7 @@ const chatRoute = require('./chat.route');
 const therapistRoute = require('./therapist.route');
 const communityRoute = require('./community.route');
 const ratingRoute = require('./rating.route');
+const analyticsRoute = require('./analytics.route');
 const config = require('../../config/config');
 
 const router = express.Router();
@@ -34,6 +35,10 @@ const defaultRoutes = [
   {
     path: '/ratings',
     route: ratingRoute,
+  },
+  {
+    path: '/analytics',
+    route: analyticsRoute,
   },
 ];
 
